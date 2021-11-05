@@ -1,55 +1,28 @@
 package org.acme.fintech.model;
 
-import javax.persistence.*;
-import java.math.BigInteger;
-import java.time.LocalDate;
+import lombok.Getter;
+import lombok.Setter;
 
+import javax.persistence.*;
+
+@Getter
+@Setter
 @Entity
 @Table(name = "device")
 public class Device {
     @Id
     @GeneratedValue(generator = "device")
-    @SequenceGenerator(name = "device", sequenceName = "device_id_seq", allocationSize = 1, initialValue = 10)
-    private BigInteger id;
+    @SequenceGenerator(name = "device", sequenceName = "device_id_seq")
+    private Integer id;
 
     @Column
-    private String phone;
+    private String name;
 
     @Column
-    private LocalDate birthdate;
+    private String publicKey;
 
-    @Column
-    private String contract;
+    @ManyToOne
+    @JoinColumn(name = "client")
+    private Client client;
 
-    public BigInteger getId() {
-        return id;
-    }
-
-    public void setId(BigInteger id) {
-        this.id = id;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public LocalDate getBirthdate() {
-        return birthdate;
-    }
-
-    public void setBirthdate(LocalDate birthdate) {
-        this.birthdate = birthdate;
-    }
-
-    public String getContract() {
-        return contract;
-    }
-
-    public void setContract(String contract) {
-        this.contract = contract;
-    }
 }
