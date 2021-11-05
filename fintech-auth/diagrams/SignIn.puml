@@ -1,0 +1,38 @@
+@startuml
+title: SignIn Flow
+
+participant Mobile as Mob
+participant "Push Gateway" as push
+participant DigitalDB
+participant "Keycloak + Extension" as Keycloak
+
+autonumber
+Mob -> Keycloak: POST /auth/login (PhoneNumber, Passcode)
+activate Mob
+activate Keycloak
+Keycloak -> DigitalDB: findClientRecord(PhoneNumber, Birthday): ClientRecord
+activate DigitalDB
+DigitalDB --> Keycloak: ClientRecord
+deactivate DigitalDB
+alt ClientRecord is NOT found
+    Keycloak --> Mob: HTTP 202
+end
+Keycloak -> Keycloak: saveInOTPContext(ClientRecord.id)
+Keycloak -> Keycloak: generateOTP(): OTP
+Keycloak --> Mob: HTTP 202
+deactivate Mob
+Keycloak -> push: sendPushNotification(recipient=PushToken, data=[OTP])
+deactivate Keycloak
+activate push
+push -> Mob: Push notification with OTP
+deactivate push
+activate Mob
+Mob -> Mob: generateSignature(data=[OTP], key=PrivateKey): Signature
+Mob -> Keycloak: /auth/login/complete (OTP, Signature)
+activate Keycloak
+Keycloak -> Keycloak: validateSignature(Signature)
+Keycloak -> Keycloak: validateOTP(OTP)
+Keycloak -> Keycloak: generateJWT(scope="regular_user"): JWT
+Keycloak --> Mob: HTTP 200 {jwt: JWT}
+deactivate Keycloak
+@enduml
