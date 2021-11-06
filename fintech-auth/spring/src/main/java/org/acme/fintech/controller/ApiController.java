@@ -3,7 +3,6 @@ package org.acme.fintech.controller;
 import org.acme.fintech.model.Client;
 import org.acme.fintech.model.Credential;
 import org.acme.fintech.repository.ClientRepository;
-import org.acme.fintech.repository.CredentialRepository;
 import org.acme.fintech.request.VerifyPassword;
 import org.acme.fintech.util.PasswordUtil;
 import org.jboss.logging.Logger;
@@ -20,9 +19,6 @@ import javax.annotation.PostConstruct;
 @RequestMapping("/api")
 public class ApiController {
     private static final Logger logger = Logger.getLogger(ApiController.class);
-
-    @Autowired
-    private CredentialRepository credentialRepository;
 
     @Autowired
     private ClientRepository clientRepository;
@@ -57,14 +53,14 @@ public class ApiController {
 
             // Verify credential
             if (credential.getPassword().equals(encodedPassword)) {
-                logger.info("Password is correct!");
+                logger.debug("Password is correct!");
                 return ResponseEntity.ok().build();
             } else {
                 logger.warn("Password is wrong!");
                 return ResponseEntity.badRequest().build();
             }
         } catch (Exception ex) {
-            logger.error("API verify failed " + ex.getMessage(), ex);
+            logger.error("api verify failed " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }

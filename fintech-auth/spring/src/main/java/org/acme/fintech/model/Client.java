@@ -18,7 +18,7 @@ public class Client {
     @SequenceGenerator(name = "client", sequenceName = "client_id_seq")
     private long id;
 
-    @Column(unique = true)
+    @Column(nullable = false, unique = true)
     private String phone;
 
     @Column(nullable = false)
@@ -36,8 +36,8 @@ public class Client {
     private Credential credential;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "signup_id")
-    private SignUp signUp;
+    @JoinColumn(name = "otptoken_id")
+    private OtpToken otpToken;
 
     @Override
     public String toString() {

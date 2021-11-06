@@ -2,16 +2,13 @@ package org.acme.fintech.request;
 
 import lombok.*;
 
-import java.time.LocalDate;
-
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SignUpInitiate {
+public class ResetPasswordComplete {
     private String phone;
+    private String otpCode;
     private String password;
-    private String contract;
-    private LocalDate birthdate;
 }

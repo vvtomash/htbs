@@ -5,14 +5,12 @@ import org.acme.fintech.gateway.MessageService;
 import org.acme.fintech.gateway.SmsService;
 import org.acme.fintech.model.Client;
 import org.acme.fintech.model.Credential;
-import org.acme.fintech.model.Device;
 import org.acme.fintech.model.OtpToken;
 import org.acme.fintech.repository.ClientRepository;
 import org.acme.fintech.repository.CredentialRepository;
-import org.acme.fintech.repository.DeviceRepository;
 import org.acme.fintech.repository.OtpTokenRepository;
 import org.acme.fintech.request.FullContractRequest;
-import org.acme.fintech.request.SignUpComplete;
+import org.acme.fintech.request.ResetPasswordComplete;
 import org.acme.fintech.util.RandomString;
 import org.jboss.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,14 +22,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.annotation.PostConstruct;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
-@RestController()
-@RequestMapping("/auth/signup")
-public class SignUpController extends AbstractController {
-    private static final Logger logger = Logger.getLogger(SignUpController.class);
+@RestController
+@RequestMapping("/auth/password")
+public class PasswordController extends AbstractController {
+    private static final Logger logger = Logger.getLogger(PasswordController.class);
+
+//    @Autowired
+//    private ResetPasswordRepository resetPasswordRepository;
 
     @Autowired
     private CredentialRepository credentialRepository;
@@ -40,13 +42,14 @@ public class SignUpController extends AbstractController {
     private OtpTokenRepository otpTokenRepository;
 
     @Autowired
-    private DeviceRepository deviceRepository;
-
-    @Autowired
     private ClientRepository clientRepository;
 
+    @PostConstruct
+    public void init() {
+    }
+
     @Transactional
-    @PostMapping("/initiate")
+    @PostMapping("/reset/initiate")
     public ResponseEntity<String> initiate(@RequestBody FullContractRequest request) {
         String phone = request.getPhone();
         String contract = request.getContract();
@@ -54,11 +57,8 @@ public class SignUpController extends AbstractController {
         try {
             Client client = clientRepository.findByPhoneAndContractAndBirthdate(phone, contract, birthdate);
             if (client == null) {
-                logger.warn(String.format("Cannot initiate signup. No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate));
+                logger.warn(String.format("Cannot reset password. No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate));
                 return ResponseEntity.badRequest().build();
-            } else if (Client.Status.ACTIVE == client.getStatus()) {
-                logger.warn(String.format("Cannot initiate signup. Client %s already activated", client));
-                return ResponseEntity.status(HttpStatus.CONFLICT).build();
             }
 
             // Generate and persist OTP token
@@ -79,23 +79,20 @@ public class SignUpController extends AbstractController {
 
             return ResponseEntity.accepted().build();
         } catch (Exception ex) {
-            logger.error("Signup initiating failed: " + ex.getMessage(), ex);
+            logger.error("Reset password failed: " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }
 
     @Transactional
-    @PostMapping("/complete")
-    public ResponseEntity<String> complete(@RequestBody SignUpComplete request) {
+    @PostMapping("/reset/complete")
+    public ResponseEntity<String> complete(@RequestBody ResetPasswordComplete request) {
         try {
             String phone = request.getPhone();
             Client client = clientRepository.findByPhone(phone);
             if (client == null) {
                 logger.warn(String.format("Cannot complete signup. No client found by phone=%s", phone));
                 return ResponseEntity.badRequest().build();
-            } else if (Client.Status.ACTIVE == client.getStatus()) {
-                logger.warn(String.format("%s already activated", client));
-                return ResponseEntity.status(HttpStatus.CONFLICT).build();
             }
 
             // Validate OTP Token
@@ -106,32 +103,20 @@ public class SignUpController extends AbstractController {
             Credential credential = newCredential(client, request.getPassword());
             credential = credentialRepository.save(credential);
 
-            // Create device
-            Device device = Device.builder()
-                    .pushToken(request.getPushToken())
-                    .publicKey(request.getPublicKey())
-                    .isActive(true)
-                    .client(client)
-                    .build();
-            deviceRepository.save(device);
-
-            // Activate client and set credential
+            // Activate credential
             client.setOtpToken(null);
-            client.setStatus(Client.Status.ACTIVE);
             client.setCredential(credential);
             clientRepository.save(client);
 
             // Remove OtpToken
             otpTokenRepository.delete(otpToken);
 
-            // TODO Generate JWT token
-
             return ResponseEntity.accepted().build();
         } catch (TokenValidationException ex) {
-            logger.error("Signup completion failed: " + ex.getMessage(), ex);
+            logger.error("Reset password completion failed: " + ex.getMessage(), ex);
             return ResponseEntity.badRequest().build();
         } catch (Exception ex) {
-            logger.error("Signup completion failed: " + ex.getMessage(), ex);
+            logger.error("Reset password completion failed: " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }

@@ -1,8 +1,5 @@
 package org.acme.fintech.controller;
 
-import org.acme.fintech.repository.SignUpRepository;
-import org.acme.fintech.request.SignUpInitiate;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,12 +9,6 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDate;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -26,14 +17,14 @@ public class SignUpControllerTest extends AbstractController {
     @Autowired
     MockMvc mockMvc;
 
-    @Autowired
-    SignUpRepository signUpRepository;
-
-    @Before
-    public void cleanup() {
-        signUpRepository.deleteAll();
-        clientRepository.deleteAll();
-    }
+//    @Autowired
+//    SignUpRepository signUpRepository;
+//
+//    @Before
+//    public void cleanup() {
+//        signUpRepository.deleteAll();
+//        clientRepository.deleteAll();
+//    }
 
     @Test
     public void initiate() throws Exception {

@@ -27,6 +27,10 @@ public class Credential {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String salt;
 
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_id")
+    private Client client;
+
     @Override
     public String toString() {
         return "Credential{" + "id=" + id + '}';
