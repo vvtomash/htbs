@@ -28,9 +28,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
+import static org.acme.fintech.util.ModelUtils.newCredential;
+import static org.acme.fintech.util.TokenUtils.validateOtpToken;
+
 @RestController()
 @RequestMapping("/auth/signup")
-public class SignUpController extends AbstractController {
+public class SignUpController {
     private static final Logger logger = Logger.getLogger(SignUpController.class);
 
     @Autowired

@@ -14,7 +14,6 @@ import org.acme.fintech.request.ResetPasswordComplete;
 import org.acme.fintech.util.RandomString;
 import org.jboss.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,13 +26,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
+import static org.acme.fintech.util.ModelUtils.newCredential;
+import static org.acme.fintech.util.TokenUtils.validateOtpToken;
+
 @RestController
 @RequestMapping("/auth/password")
-public class PasswordController extends AbstractController {
+public class PasswordController {
     private static final Logger logger = Logger.getLogger(PasswordController.class);
-
-//    @Autowired
-//    private ResetPasswordRepository resetPasswordRepository;
 
     @Autowired
     private CredentialRepository credentialRepository;
