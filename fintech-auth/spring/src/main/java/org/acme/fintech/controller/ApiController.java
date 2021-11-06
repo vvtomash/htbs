@@ -39,14 +39,14 @@ public class ApiController {
             if (client == null) {
                 logger.warn("No client found for " + phone);
                 return ResponseEntity.badRequest().build();
+            } else if (Client.Status.ACTIVE != client.getStatus()) {
+                logger.warn("Client not activated for " + phone);
+                return ResponseEntity.badRequest().build();
             }
 
-            Credential credential = client.getCredential();//credentialRepository.findByClient(client);
+            Credential credential = client.getCredential();
             if (credential == null) {
                 logger.warn("No credential found for " + phone);
-                return ResponseEntity.badRequest().build();
-            } else if (!credential.isActive()) {
-                logger.warn("Credential is inactive for " + phone);
                 return ResponseEntity.badRequest().build();
             }
 

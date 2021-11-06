@@ -1,10 +1,9 @@
 package org.acme.fintech.repository;
 
-import org.acme.fintech.model.Client;
-import org.acme.fintech.model.Credential;
+import org.acme.fintech.model.OtpToken;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface CredentialRepository extends CrudRepository<Credential, Long> {
+public interface OtpTokenRepository extends CrudRepository<OtpToken, Long> {
 }

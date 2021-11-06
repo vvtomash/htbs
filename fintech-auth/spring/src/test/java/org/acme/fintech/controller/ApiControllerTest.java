@@ -15,6 +15,9 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,10 +44,10 @@ public class ApiControllerTest extends AbstractController {
         String saltString = PasswordUtil.encodeBase64(saltBytes);
         String encodedPassword = PasswordUtil.encodePassword(password, saltBytes);
         Credential credential = Credential.builder()
+                .createDateTime(LocalDateTime.now(ZoneOffset.UTC))
                 .password(encodedPassword)
                 .salt(saltString)
-                .client(client)
-                .isActive(true)
+                //.client(client)
                 .build();
         credential = credentialRepository.save(credential);
         client.setCredential(credential);

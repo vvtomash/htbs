@@ -18,9 +18,6 @@ public class Client {
     @SequenceGenerator(name = "client", sequenceName = "client_id_seq")
     private long id;
 
-    @Version
-    private long version;
-
     @Column(unique = true)
     private String phone;
 
@@ -30,18 +27,29 @@ public class Client {
     @Column(nullable = false)
     private LocalDate birthdate;
 
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private Status status = Status.INACTIVE;
+
     @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "credential_id")
     private Credential credential;
 
     @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "signup_id")
     private SignUp signUp;
 
     @Override
     public String toString() {
         return "Client{" +
                 "id=" + id +
-                ", version=" + version +
                 ", phone='" + phone + '\'' +
+                ", status='" + status + '\'' +
                 '}';
+    }
+
+    public enum Status {
+        ACTIVE,
+        INACTIVE
     }
 }

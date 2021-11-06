@@ -18,6 +18,7 @@ public abstract class AbstractController {
         Client client = Client.builder()
                 .phone("P1")
                 .contract("C1")
+                .status(Client.Status.ACTIVE)
                 .birthdate(LocalDate.now())
                 .build();
         return clientRepository.save(client);

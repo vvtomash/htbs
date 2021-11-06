@@ -1,27 +1,84 @@
 @startuml
-
-hide circle
-skinparam linetype ortho
-
 title "Logic ERD for Digital Backend"
+hide circle
+'skinparam linetype ortho
 
-entity "Client" {
-  *id: uuid <<PK>>
-  --
-  *phone_number: text (indexed)
-  *birthday: date
-  *contract_number: text
-  keycloak_user_id: uuid (indexed)
+entity "Client" as client {
+    *id: number <<PK>>
+    --
+    *phone: text
+    *birthday: date
+    *contract: text
+    *status: enum (ACTIVE, INACTIVE)
+    credential: number <<FK>>
 }
 
-entity "MobileDevice" {
-  *id: uuid <<PK>>
-  --
-  *activated_at: datetime
-  public_key: text
-  push_token: text
+entity "Credential" as cred {
+    *id: number <<PK>>
+    --
+    *client_id: number <<FK>>
+    *password: text
+    *salt: text
 }
 
-"Client" ||..o| MobileDevice
+entity "OTP Token" as otp {
+    *id: number <<PK>>
+    --
+    *code: text
+    *is_active: boolean
+    *expiryTimestamp: datetime
+}
+
+entity "Sign Up" as signup {
+    *id: number <<PK>>
+    --
+    *client_id: number <<FK>>
+    *token_id: number <<FK>>
+}
+
+entity "Sign In" as signin {
+    *id: number <<PK>>
+    --
+    *client_id: number <<FK>>
+    *token_id: number <<FK>>
+}
+
+entity "Reset Password" as reset {
+    *id: number <<PK>>
+    --
+    *client_id: number <<FK>>
+    *token_id: number <<FK>>
+}
+
+entity "New Device" as new_device {
+    *id: number <<PK>>
+    --
+    *client_id: number <<FK>>
+    *token_id: number <<FK>>
+}
+
+'Relations
+cred |o--|| client
+
+client ||--o| signup
+client ||--o| signin
+client ||--o| reset
+client ||--o| new_device
+
+signup |o--|| otp
+signin |o--|| otp
+reset |o--|| otp
+new_device |o--|| otp
+
+
+'entity "Device" as device {
+'  *id: uuid <<PK>>
+'  --
+'  *activated_at: datetime
+'  public_key: text
+'  push_token: text
+'}
+'
+'cli ||..o| device
 
 @enduml

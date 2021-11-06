@@ -18,9 +18,6 @@ public class Device {
     @SequenceGenerator(name = "device", sequenceName = "device_id_seq")
     private long id;
 
-    @Version
-    private long version;
-
     @Column(name = "is_active")
     private boolean isActive;
 
@@ -30,10 +27,7 @@ public class Device {
     @Column(name = "public_key", columnDefinition = "TEXT")
     private String publicKey;
 
-    @Column(name = "activate_timestamp", nullable = false)
-    private LocalDateTime activateDateTime;
-
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "client_id")
     private Client client;
-
 }

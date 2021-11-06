@@ -2,26 +2,23 @@ package org.acme.fintech.controller;
 
 import org.acme.fintech.gateway.MessageService;
 import org.acme.fintech.gateway.SmsService;
-import org.acme.fintech.model.Client;
-import org.acme.fintech.model.Credential;
-import org.acme.fintech.model.Device;
-import org.acme.fintech.model.SignUp;
-import org.acme.fintech.repository.ClientRepository;
-import org.acme.fintech.repository.CredentialRepository;
-import org.acme.fintech.repository.DeviceRepository;
-import org.acme.fintech.repository.SignUpRepository;
+import org.acme.fintech.model.*;
+import org.acme.fintech.repository.*;
 import org.acme.fintech.request.SignUpComplete;
 import org.acme.fintech.request.SignUpInitiate;
 import org.acme.fintech.util.PasswordUtil;
 import org.acme.fintech.util.RandomString;
 import org.jboss.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.persistence.EntityManager;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -35,6 +32,9 @@ public class SignUpController {
     private CredentialRepository credentialRepository;
 
     @Autowired
+    private OtpTokenRepository otpTokenRepository;
+
+    @Autowired
     private DeviceRepository deviceRepository;
 
     @Autowired
@@ -43,100 +43,103 @@ public class SignUpController {
     @Autowired
     private SignUpRepository signUpRepository;
 
-    //TODO DB Transactions
+    @Autowired
+    private EntityManager entityManager;
 
+
+    @Transactional
     @PostMapping("/initiate")
     public ResponseEntity<String> initiate(@RequestBody SignUpInitiate request) {
         String phone = request.getPhone();
         String contract = request.getContract();
         LocalDate birthdate = request.getBirthdate();
-        Client client = clientRepository.findByPhoneAndContractAndBirthdate(phone, contract, birthdate);
-        if (client == null) {
-            logger.warn(String.format("No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate));
-            return ResponseEntity.badRequest().build();
+        try {
+            Client client = clientRepository.findByPhoneAndContractAndBirthdate(phone, contract, birthdate);
+            if (client == null) {
+                logger.warn(String.format("Cannot initiate signup. No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate));
+                return ResponseEntity.badRequest().build();
+            } else if (Client.Status.ACTIVE == client.getStatus()) {
+                logger.warn(String.format("Cannot initiate signup. Client %s already activated", client));
+                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            }
+
+            // Generate credential
+            String password = request.getPassword();
+            byte[] saltBytes = PasswordUtil.randomSalt();
+            String saltString = PasswordUtil.encodeBase64(saltBytes);
+            String encodedPassword = PasswordUtil.encodePassword(password, saltBytes);
+
+            // Assign/update credential in the client
+            Credential credential = new Credential();
+            credential.setCreateDateTime(LocalDateTime.now(ZoneOffset.UTC));
+            credential.setPassword(encodedPassword);
+            credential.setSalt(saltString);
+            credential = credentialRepository.save(credential);
+
+            // Generate and persist OTP token
+            String code = RandomString.randomCode(6).toUpperCase();
+            OtpToken otpToken = new OtpToken();
+            otpToken.setCreateDateTime(LocalDateTime.now(ZoneOffset.UTC));
+            otpToken.setExpiryDateTime(LocalDateTime.now(ZoneOffset.UTC).plusMinutes(5)); // TODO Configuration
+            otpToken.setCode(code);
+            otpToken = otpTokenRepository.save(otpToken);
+
+            // Persist sign up. Link to token and client
+            SignUp signUp = new SignUp();
+            signUp.setCredential(credential);
+            signUp.setOtpToken(otpToken);
+            signUpRepository.save(signUp);
+
+            // Persist client
+            client.setSignUp(signUp);
+            clientRepository.save(client);
+
+            // Send OTP token
+            MessageService gateway = new SmsService();
+            gateway.send(phone, code);
+
+            return ResponseEntity.accepted().build();
+        } catch (Exception ex) {
+            logger.error("Signup initiate failed: " + ex.getMessage(), ex);
+            return ResponseEntity.internalServerError().build();
         }
-
-        // Generate disabled credential
-        String password = request.getPassword();
-        byte[] saltBytes = PasswordUtil.randomSalt();
-        String saltString = PasswordUtil.encodeBase64(saltBytes);
-        String encodedPassword = PasswordUtil.encodePassword(password, saltBytes);
-        Credential credential = Credential.builder()
-                .createDateTime(LocalDateTime.now(ZoneOffset.UTC))
-                .password(encodedPassword)
-                .salt(saltString)
-                .isActive(false)
-                .client(client)
-                .build();
-        credential = credentialRepository.save(credential);
-
-        // TODO Consider uniques as much as possible
-        // Generate OTP token
-        String otpToken = RandomString.randomCode(6).toUpperCase();
-
-        // Persist sign up. Link to credential and client
-        SignUp signUp = SignUp.builder()
-                .createDateTime(LocalDateTime.now(ZoneOffset.UTC))
-                .credential(credential)
-                .otpToken(otpToken)
-                .isActive(true)
-                .client(client)
-                .build();
-        signUp = signUpRepository.save(signUp);
-
-        // Assign signup to the client.
-        // Credentials will be assigned upon sign up completion
-        client.setSignUp(signUp);
-
-        // Update client
-        clientRepository.save(client);
-
-        // Send OTP token
-        MessageService gateway = new SmsService();
-        gateway.send(phone, otpToken);
-
-        return ResponseEntity.accepted().build();
     }
 
+    @Transactional
     @PostMapping("/complete")
     public ResponseEntity<String> complete(@RequestBody SignUpComplete request) {
         String phone = request.getPhone();
         Client client = clientRepository.findByPhone(phone);
         if (client == null) {
-            logger.warn(String.format("No client found for phone=%s", phone));
+            logger.warn(String.format("Cannot complete signup. No client found by phone=%s", phone));
             return ResponseEntity.badRequest().build();
+        } else if (Client.Status.ACTIVE == client.getStatus()) {
+            logger.warn(String.format("%s already activated", client));
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
 
-        // Sign up action shall be present in active state
+        // Sign up action shall be present with otp token assigned
         SignUp signUp = client.getSignUp();
         if (signUp == null) {
-            logger.warn(String.format("No signup assigned to %s", client));
-            return ResponseEntity.badRequest().build();
-        } else if (!signUp.isActive()) {
-            logger.warn(String.format("Signup deactivated for %s", client));
+            logger.warn(String.format("Cannot complete signup. No signup found for %s", client));
             return ResponseEntity.badRequest().build();
         }
 
-        // Credential shall be present in disabled state
-        Credential credential = signUp.getCredential();
-        if (credential == null) {
-            logger.error(String.format("No credential found for %s", signUp));
-            return ResponseEntity.internalServerError().build();
-        }
-
-        // Validate OTP tokens
-        if (!signUp.getOtpToken().equals(request.getOtpToken())) {
-            logger.warn(String.format("OTP tokens mismatch for %s", client));
+        // Validate OTP Token
+        OtpToken otpToken = signUp.getOtpToken();
+        LocalDateTime nowDateTime = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime expiryDateTime = otpToken.getExpiryDateTime();
+        if (nowDateTime.isAfter(expiryDateTime)) {
+            logger.warn(String.format("Cannot complete signup. OTP Token expired for %s", client));
             return ResponseEntity.badRequest().build();
         }
-
-        // Deactivate signup
-        signUp.setActive(false);
-        signUpRepository.save(signUp);
+        if (!otpToken.getCode().equals(request.getOtpToken())) {
+            logger.warn(String.format("Cannot complete signup. OTP tokens mismatch for %s", client));
+            return ResponseEntity.badRequest().build();
+        }
 
         // Create device
         Device device = Device.builder()
-                .activateDateTime(LocalDateTime.now(ZoneOffset.UTC))
                 .pushToken(request.getPushToken())
                 .publicKey(request.getPublicKey())
                 .isActive(true)
@@ -144,17 +147,17 @@ public class SignUpController {
                 .build();
         deviceRepository.save(device);
 
-        // Activate credential
-        credential.setActive(true);
-        credential.setActivateDateTime(LocalDateTime.now(ZoneOffset.UTC));
-        credentialRepository.save(credential);
-
-        // Remove sign up on client
+        // Activate client along credential remapping
         client.setSignUp(null);
-        client.setCredential(credential);
+        client.setStatus(Client.Status.ACTIVE);
+        client.setCredential(signUp.getCredential());
         clientRepository.save(client);
 
-        // Generate JWT token
+        // Remove SignUp and OtpToken
+        signUpRepository.delete(signUp);
+        otpTokenRepository.delete(otpToken);
+
+        // TODO Generate JWT token
 
         return ResponseEntity.accepted().build();
     }
