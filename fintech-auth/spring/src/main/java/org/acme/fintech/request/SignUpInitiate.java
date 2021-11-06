@@ -1,11 +1,15 @@
 package org.acme.fintech.request;
 
-import lombok.Data;
+import lombok.*;
 
 import java.time.LocalDate;
 
-@Data
-public class SignUpInitiateRequest {
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SignUpInitiate {
     private String phone;
     private String password;
     private String contract;

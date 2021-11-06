@@ -41,7 +41,7 @@ public class ApiController {
                 return ResponseEntity.badRequest().build();
             }
 
-            Credential credential = credentialRepository.findByClient(client);
+            Credential credential = client.getCredential();//credentialRepository.findByClient(client);
             if (credential == null) {
                 logger.warn("No credential found for " + phone);
                 return ResponseEntity.badRequest().build();

@@ -1,9 +1,13 @@
 package org.acme.fintech.request;
 
-import lombok.Data;
+import lombok.*;
 
-@Data
-public class SignUpCompleteRequest {
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class SignUpComplete {
     private String phone;
     private String otpToken;
     private String pushToken;

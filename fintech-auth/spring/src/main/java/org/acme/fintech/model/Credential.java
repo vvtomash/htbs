@@ -3,6 +3,7 @@ package org.acme.fintech.model;
 import lombok.*;
 
 import javax.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Getter
@@ -15,17 +16,26 @@ public class Credential {
     @Id
     @GeneratedValue(generator = "credential")
     @SequenceGenerator(name = "credential", sequenceName = "credential_id_seq")
-    private Integer id;
+    private long id;
 
-    @Column(length = 4000)
+    @Version
+    private long version;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String password;
 
-    @Column(length = 4000)
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String salt;
 
-    @Column
+    @Column(name = "create_timestamp", nullable = false)
+    private LocalDateTime createDateTime;
+
+    @Column(name = "activate_timestamp")
+    private LocalDateTime activateDateTime;
+
+    @Column(name = "is_active")
     private boolean isActive;
 
-    @OneToOne
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Client client;
 }
