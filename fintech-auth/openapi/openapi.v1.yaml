@@ -1,95 +1,133 @@
 openapi: 3.0.0
 info:
   version: 1.0.0
-  title: Swagger Petstore
+  title: Digital Bank API
   license:
-    name: MIT
+    name: TBD
+  description: API for Digital Bank Authentication
+  contact:
+    name: Aleksey Lysak
 servers:
-  - url: 'http://petstore.swagger.io/v1'
+  - url: 'http://localhost:8080/auth'
 paths:
-  /pets:
-    get:
-      summary: List all pets
-      operationId: listPets
-      tags:
-        - pets
-      parameters:
-        - name: limit
-          in: query
-          description: How many items to return at one time (max 100)
-          required: false
-          schema:
-            type: integer
-            format: int32
-        - schema:
-            type: string
-          in: query
-          name: offset
-      responses:
-        '200':
-          description: A paged array of pets
-          headers:
-            x-next:
-              description: A link to the next page of responses
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Pets'
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: ../common/models/error.v1.yaml
+  /signup/initiate:
     post:
-      summary: Create a pet
-      operationId: createPets
+      summary: Initiate Sign Up
+      operationId: sign-up-initiate
       tags:
-        - pets
+        - signup
       responses:
-        '201':
-          description: Null response
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: ../common/models/error.v1.yaml
-  '/pets/{petId}':
-    get:
-      summary: Info for a specific pet
-      operationId: showPetById
+        '202':
+          description: Request Accepted
+        '403':
+          description: Request Forbidden
+        '409':
+          description: Request Conflict
+        '500':
+          description: Internal Server Error
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Contract'
+            examples: {}
+        description: Initiate Sign Up Request Payload
+      description: Initiate Digital Bank Sign Up
+    parameters: []
+  /signup/complete:
+    post:
+      summary: Complete Sign Up
+      operationId: sign-up-complete
       tags:
-        - pets
-      parameters:
-        - name: petId
-          in: path
-          required: true
-          description: The id of the pet to retrieve
-          schema:
-            type: string
+        - signup
       responses:
         '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: ./models/pet.v1.yaml
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: ../common/models/error.v1.yaml
+          description: Request Success
+        '403':
+          description: Request Forbidden
+        '500':
+          description: Internal Server Error
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupComplete'
+            examples: {}
+        description: Complete Sign Up Request Payload
+      description: Complete Digital Bank Sign Up
+    parameters: []
+  /password/reset/initiate:
+    post:
+      summary: Reset Password
+      operationId: reset-password-initiate
+      tags:
+        - password
+      responses:
+        '202':
+          description: Request Accepted
+        '403':
+          description: Request Forbidden
+        '500':
+          description: Internal Server Error
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Contract'
+            examples: {}
+        description: Reset Password Request Payload
+      description: Reset Passsword
+    parameters: []
 components:
   schemas:
-    Pets:
-      title: Pets
-      description: A list of pets.
-      type: array
-      x-tags:
-        - Pets
-      items:
-        $ref: ./models/pet.v1.yaml
+    Contract:
+      description: Client full contract data
+      type: object
+      title: Contract
+      x-examples: {}
+      properties:
+        phone:
+          type: string
+          description: Client phone number
+        contract:
+          type: string
+          description: Client contract number
+        birthdate:
+          type: string
+          format: date
+          description: Client birthday
+      required:
+        - phone
+        - contract
+        - birthdate
+    SignupComplete:
+      description: ''
+      type: object
+      title: SignupComplete
+      properties:
+        phone:
+          type: string
+          description: Client phone number
+        otpCode:
+          type: string
+          description: OTP Token received in SMS
+        pushToken:
+          type: string
+          description: The FCM push token
+        publicKey:
+          type: string
+          description: Device public key
+        password:
+          type: string
+          description: Client password
+      required:
+        - phone
+        - otpCode
+        - password
+        - pushToken
+        - publicKey
+tags:
+  - name: signup
+  - name: signin
+  - name: device
+  - name: password
