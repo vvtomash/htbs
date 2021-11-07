@@ -2,7 +2,7 @@ package org.acme.fintech.gateway;
 
 import org.jboss.logging.Logger;
 
-public class SmsService implements MessageService {
+public class SmsService implements GatewayService {
     private static final Logger logger = Logger.getLogger(SmsService.class);
 
     public void send(String target, String message) {

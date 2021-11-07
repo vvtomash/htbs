@@ -1,62 +1,92 @@
 @startuml
 title: SignUp Flow
-
-actor Client as user
-participant Mobile as Mob
-participant "SMS Gateway" as sms
-participant "Push Gateway" as push
-participant DigitalDB
-participant "Keycloak + Extension" as Keycloak
-
 autonumber
 
-activate user
-user -> Mob: Enter PhoneNumber, Birthday, Password
-activate Mob
-user -> Mob: Enter Password
-Mob -> Keycloak: POST /auth/signup (PhoneNumber, Birthday, Password)
-alt Started in background
-    Mob -> Mob: generateKeys(): [PublicKey, PrivateKey]
+actor Client as user
+participant Mobile as mob
+participant "API Digital" as api
+participant "DB Digital" as dbd
+participant "SMS Gateway" as sms
+participant "FCM Gateway" as fcm
+
+user -> mob: Selects: SignUp (menu/button)
+user -> mob: Enters: PhoneNumber, Birthday, Contract
+mob -> api: POST /auth/signup/initiate (PhoneNumber, Birthday, Contract)
+api -> dbd: Lookup client record by:\nPhoneNumber + Birthday + Contract
+api <-- dbd: Lookup result
+alt Client not found
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignUp. Contact bank
+end
+alt Client already activated
+    mob <-- api: HTTP 409 Conflict
+    user <-- mob: Popup message: Use Sign In or Password Reset
 end
 
-activate Keycloak
+note over api
+Otherwise, the client
+is eligible for SignUp
+end note
 
-Keycloak -> DigitalDB: findClientRecord(PhoneNumber, Birthday): ClientRecord
-activate DigitalDB
-DigitalDB --> Keycloak: ClientRecord
-deactivate DigitalDB
-alt ClientRecord is NOT found
-    Keycloak --> Mob: HTTP 202
+api -> api: Generate OTP Token (Code, Expire Time)
+api -> dbd: Save OTP Token (Code, Expire Time) in client record
+api <-- dbd: Client record updated
+api -> sms: Send SMS (PhoneNumber, OTP Code)
+
+mob  <-- api: HTTP 202 Accepted
+user <-- mob: New screen opened
+newpage
+
+mob -> mob: Waits for user data
+alt Meanwhile executed in background
+    mob -> mob: Generates keys: [PublicKey, PrivateKey]
+    mob -> fcm: Get push token
+    mob <-- fcm: Push Token
 end
-Keycloak -> Keycloak: saveInOTPContext(ClientRecord.id)
-Keycloak -> Keycloak: generateAndSaveOTP(): OTP
-Keycloak --> Mob: HTTP 202
-deactivate Mob
-Keycloak -> sms: sendSMS(phone=PhoneNumber, data=OTP)
-deactivate Keycloak
-activate sms
 
-sms -> Mob: SMS with OTP
-deactivate sms
-activate Mob
-Mob -> push: getPushToken()
-activate push
-push --> Mob: Push Token
-deactivate push
-user -> Mob: Enter OTP
-Mob -> Keycloak: PATCH /auth/signup (Mobile, OTP, Push Token, PublicKey)
-activate Keycloak
-Keycloak -> Keycloak: validateOTP(OTP)
-Keycloak -> DigitalDB: updateUser(ClientId, KeycloackUserId)
-activate DigitalDB
-DigitalDB --> Keycloak:
-deactivate DigitalDB
-Keycloak -> DigitalDB: createMobileDevice(ClientId, Push Token, PublicKey)
-activate DigitalDB
-DigitalDB --> Keycloak:
-deactivate DigitalDB
-Keycloak -> Keycloak: generateJWT(scope="regular_user"): JWT
-Keycloak --> Mob: HTTP 200 {jwt: JWT}
-deactivate Keycloak
+user -> user: Waits for SMS with OTP Code
+mob <-- sms: SMS with OTP Code
+
+user -> mob: Enter OTP Code
+user -> mob: Enter Password and Confirm Password
+
+mob -> api: POST /auth/signup/complete \nPhoneNumber, OTP Code,\nPush Token, Public Key,\nPassword
+api -> dbd: Lookup client record by PhoneNumber
+api <-- dbd: Lookup result
+alt Client not found
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignUp. Contact bank
+end
+
+alt Client already activated
+    mob <-- api: HTTP 409 Conflict
+    user <-- mob: Popup message: Use Sign In or Password Reset
+end
+api -> api: Get OTP Token (Code, Expire Time)\nfrom client record
+api -> api: Validate OTP Token against\nreceived OTP Code
+alt Invalid token
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignUp. Contact bank
+end
+note over api
+Token is valid
+end note
+
+api -> api: Create credential record (Hashed Password, Salt)
+api -> dbd: Save credential record
+api -> api: Create device record (Push Token, Public Key)
+api -> dbd: Save device record
+api -> api: Activate client record
+note over api
+Set status=ACTIVE
+Set otp token=NULL
+Set credential reference
+end note
+api -> dbd: Save client record
+
+api -> api: Generate JWT Token
+mob <-- api: HTTP 200 (JWT Token)
+mob -> mob: Stores private key\nin device storage
+user <-- mob: Home screen opened
 
 @enduml

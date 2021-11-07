@@ -29,14 +29,17 @@ public class Client {
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private Status status = Status.INACTIVE;
+    private Status status;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "credential_id")
     private Credential credential;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "otptoken_id")
+    @Embedded
+    @AttributeOverrides(value = {
+            @AttributeOverride(name = "code", column = @Column(name = "otp_code")),
+            @AttributeOverride(name = "expTime", column = @Column(name = "otp_exp_time"))
+    })
     private OtpToken otpToken;
 
     @Override

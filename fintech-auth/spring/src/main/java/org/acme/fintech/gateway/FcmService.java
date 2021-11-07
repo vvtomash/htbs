@@ -2,7 +2,7 @@ package org.acme.fintech.gateway;
 
 import org.jboss.logging.Logger;
 
-public class FcmService implements MessageService {
+public class FcmService implements GatewayService {
     private static final Logger logger = Logger.getLogger(FcmService.class);
 
     @Override
