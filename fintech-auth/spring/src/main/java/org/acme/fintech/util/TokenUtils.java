@@ -2,19 +2,21 @@ package org.acme.fintech.util;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.io.Encoders;
 import io.jsonwebtoken.security.Keys;
 import org.acme.fintech.exception.TokenValidationException;
+import org.acme.fintech.model.Client;
 import org.acme.fintech.model.OtpToken;
-import org.apache.commons.codec.digest.DigestUtils;
+import org.acme.fintech.response.JwtAuthenticationToken;
 import org.apache.commons.lang3.StringUtils;
 
-import java.security.*;
-import java.security.interfaces.RSAPrivateCrtKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.RSAPublicKeySpec;
+import java.security.Key;
+import java.security.KeyPair;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Date;
+import java.util.UUID;
 
 public class TokenUtils {
 
@@ -37,20 +39,22 @@ public class TokenUtils {
         }
     }
 
-    public static String newJWSToken() {
-        Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-        return newJWSToken(key);
+    public static JwtAuthenticationToken newJWSToken(Client client) {
+        // TODO Move to Key Management System (KMS)
+        Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+        String accessToken = Jwts.builder()
+                .setId(UUID.randomUUID().toString())
+                .setSubject(client.getPhone())
+                .setIssuedAt(new Date())
+                .signWith(secretKey)
+                .compact();
+        JwtAuthenticationToken response = new JwtAuthenticationToken();
+        response.setAccessToken(accessToken);
+        return response;
     }
 
-    public static String newJWSToken(Key key) {
-        return Jwts.builder().setSubject("Joe").signWith(key).compact();
-    }
-
-    public static void main(String[] args) throws NoSuchAlgorithmException, InvalidKeySpecException {
-        KeyPair keyPair = Keys.keyPairFor(SignatureAlgorithm.RS256); //or RS384, RS512, PS256, PS384, PS512, ES256, ES384, ES512
-        PrivateKey privateKey = keyPair.getPrivate();
-        PublicKey publicKey = keyPair.getPublic();
-
+    public static void main(String[] args) throws Exception {
+        /*
         String publicKey64 = Encoders.BASE64.encode(publicKey.getEncoded());
         System.out.println("original publicKey base64: " + publicKey64);
 
@@ -67,9 +71,26 @@ public class TokenUtils {
 
         sha256Hex = DigestUtils.sha256Hex(restoredPublicKey.getEncoded());
         System.out.println("restored publicKey finger: " + sha256Hex);
+        */
 
-        //        Key key3 = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-//        String token = Jwts.builder().setSubject("Joe").signWith(key3).compact();
-//        System.out.println("token = " + token);
+        KeyPair keyPair = Keys.keyPairFor(SignatureAlgorithm.RS256);
+        PrivateKey privateKey = keyPair.getPrivate();
+        PublicKey publicKey = keyPair.getPublic();
+
+        String jwtToken = Jwts.builder()
+                .setSubject("Joe")
+                .setId(UUID.randomUUID().toString())
+                .setIssuedAt(new Date())
+                .setHeaderParam("kid", "myKeyId")
+                .signWith(privateKey)
+                .compact();
+        System.out.println("jwtToken = " + jwtToken);
+
+        Object body = Jwts.parserBuilder()
+                .setSigningKey(publicKey)
+                .build()
+                .parseClaimsJws(jwtToken)
+                .getBody();
+        System.out.println("body = " + body);
     }
 }

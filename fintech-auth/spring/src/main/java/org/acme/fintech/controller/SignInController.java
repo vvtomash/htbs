@@ -1,6 +1,7 @@
 package org.acme.fintech.controller;
 
 import org.acme.fintech.exception.ClientValidationException;
+import org.acme.fintech.exception.PasswordValidationException;
 import org.acme.fintech.exception.TokenValidationException;
 import org.acme.fintech.gateway.GatewayService;
 import org.acme.fintech.gateway.SmsService;
@@ -9,40 +10,47 @@ import org.acme.fintech.model.Credential;
 import org.acme.fintech.model.OtpToken;
 import org.acme.fintech.repository.ClientRepository;
 import org.acme.fintech.repository.CredentialRepository;
-import org.acme.fintech.request.ClientDataRequest;
-import org.acme.fintech.request.ResetPasswordComplete;
+import org.acme.fintech.repository.DeviceRepository;
+import org.acme.fintech.request.SignInComplete;
+import org.acme.fintech.request.SignInRequest;
+import org.acme.fintech.response.JwtAuthenticationToken;
 import org.acme.fintech.util.ModelUtils;
+import org.acme.fintech.util.PasswordUtil;
 import org.acme.fintech.util.TokenUtils;
 import org.jboss.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-
-@RestController
-@RequestMapping("/auth/password")
-public class PasswordController {
-    private static final Logger logger = Logger.getLogger(PasswordController.class);
+@RestController()
+@RequestMapping("/auth/signin")
+public class SignInController {
+    private static final Logger logger = Logger.getLogger(SignInController.class);
 
     @Autowired
     private CredentialRepository credentialRepository;
 
     @Autowired
+    private DeviceRepository deviceRepository;
+
+    @Autowired
     private ClientRepository clientRepository;
 
-    @PostMapping("/reset")
-    public ResponseEntity<String> initiate(@RequestBody ClientDataRequest request) {
+    @PostMapping
+    public ResponseEntity<String> request(@RequestBody SignInRequest request) {
         String phone = request.getPhone();
-        String contract = request.getContract();
-        LocalDate birthdate = request.getBirthdate();
         try {
-            Client client = clientRepository.findByPhoneAndContractAndBirthdate(phone, contract, birthdate);
+            Client client = clientRepository.findByPhone(phone);
             if (client == null) {
-                throw new ClientValidationException(String.format("No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate));
+                throw new ClientValidationException(String.format("No client found for phone=%s", phone));
+            } else if (Client.Status.ACTIVE != client.getStatus()) {
+                throw new ClientValidationException(String.format("Client %s not activated", client));
             }
+
+            // Validate password first
+            Credential credential = client.getCredential();
+            PasswordUtil.validatePassword(credential, request.getPassword());
 
             // Generate and persist OTP token
             OtpToken optToken = ModelUtils.newOtpToken();
@@ -54,43 +62,41 @@ public class PasswordController {
             gateway.send(phone, optToken.getCode());
 
             return ResponseEntity.accepted().build();
-        } catch (ClientValidationException ex) {
-            logger.error("Reset Password failed: " + ex.getMessage(), ex);
+        } catch (ClientValidationException | PasswordValidationException ex) {
+            logger.error("SingIn initiating failed: " + ex.getMessage(), ex);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception ex) {
-            logger.error("Reset Password failed: " + ex.getMessage(), ex);
+            logger.error("SingIn initiating failed: " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }
 
-    @Transactional
-    @PatchMapping("/reset")
-    public ResponseEntity<String> complete(@RequestBody ResetPasswordComplete request) {
+    @PatchMapping
+    public ResponseEntity<JwtAuthenticationToken> complete(@RequestBody SignInComplete request) {
+        String phone = request.getPhone();
         try {
-            String phone = request.getPhone();
             Client client = clientRepository.findByPhone(phone);
             if (client == null) {
                 throw new ClientValidationException(String.format("No client found by phone=%s", phone));
+            } else if (Client.Status.ACTIVE != client.getStatus()) {
+                throw new ClientValidationException(String.format("Client %s is not activated", client));
             }
 
             // Validate OTP Token
             TokenUtils.validateOtpToken(client.getOtpToken(), request.getOtpCode());
 
-            // Generate credential
-            Credential credential = ModelUtils.newCredential(client, request.getPassword());
-            credential = credentialRepository.save(credential);
-
-            // Activate credential
+            // Activate client and set credential
             client.setOtpToken(null);
-            client.setCredential(credential);
             clientRepository.save(client);
 
-            return ResponseEntity.accepted().build();
+            // New JWT token
+            JwtAuthenticationToken authToken = TokenUtils.newJWSToken(client);
+            return ResponseEntity.ok(authToken);
         } catch (ClientValidationException | TokenValidationException ex) {
-            logger.error("Reset Password complete failed: " + ex.getMessage(), ex);
+            logger.error("Signin completion failed: " + ex.getMessage(), ex);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception ex) {
-            logger.error("Reset Password complete failed: " + ex.getMessage(), ex);
+            logger.error("Signin completion failed: " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }

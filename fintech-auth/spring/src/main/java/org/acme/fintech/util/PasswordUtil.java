@@ -1,5 +1,7 @@
 package org.acme.fintech.util;
 
+import org.acme.fintech.exception.PasswordValidationException;
+import org.acme.fintech.model.Credential;
 import org.apache.commons.codec.binary.Base64;
 
 import javax.crypto.SecretKeyFactory;
@@ -14,6 +16,21 @@ public class PasswordUtil {
     private static final int DEFAULT_DERIVED_KEY_SIZE = 512;
     private static final int DEFAULT_ITERATIONS = 27500;
     private static final int DEFAULT_SALT_SIZE = 16;
+
+    public static void validatePassword(Credential credential, String rawPassword) {
+        if (credential == null) {
+            throw new PasswordValidationException();
+        }
+
+        // Encode given password using restored salt
+        byte[] saltBytes = PasswordUtil.decodeBase64(credential.getSalt());
+        String encodedPassword = PasswordUtil.encodePassword(rawPassword, saltBytes);
+
+        // Verify credential
+        if (!credential.getPassword().equals(encodedPassword)) {
+            throw new PasswordValidationException();
+        }
+    }
 
     public static String encodePassword(String rawPassword, byte[] salt) {
         KeySpec spec = new PBEKeySpec(rawPassword.toCharArray(), salt,

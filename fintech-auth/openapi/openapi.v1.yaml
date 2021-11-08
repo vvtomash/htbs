@@ -3,17 +3,17 @@ info:
   version: 1.0.0
   title: Digital Bank API
   license:
-    name: TBD
+    name: License TBD later
   description: API for Digital Bank Authentication
   contact:
     name: Aleksey Lysak
 servers:
-  - url: 'http://localhost:8080/auth'
+  - url: 'http://localhost:8080'
 paths:
-  /signup/initiate:
+  /auth/signup:
     post:
       summary: Initiate Sign Up
-      operationId: sign-up-initiate
+      operationId: signup-initiate
       tags:
         - signup
       responses:
@@ -29,20 +29,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Contract'
+              $ref: '#/components/schemas/ClientData'
             examples: {}
-        description: Initiate Sign Up Request Payload
+        description: Initiate SignUp Payload
       description: Initiate Digital Bank Sign Up
-    parameters: []
-  /signup/complete:
-    post:
+    patch:
       summary: Complete Sign Up
-      operationId: sign-up-complete
+      operationId: signup-complete
       tags:
         - signup
       responses:
         '200':
           description: Request Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwtAuthToken'
         '403':
           description: Request Forbidden
         '500':
@@ -53,13 +55,12 @@ paths:
             schema:
               $ref: '#/components/schemas/SignupComplete'
             examples: {}
-        description: Complete Sign Up Request Payload
+        description: Complete SignUp Payload
       description: Complete Digital Bank Sign Up
-    parameters: []
-  /password/reset/initiate:
+  /auth/password/reset:
     post:
-      summary: Reset Password
-      operationId: reset-password-initiate
+      summary: Initiate Password Reset
+      operationId: password-reset-initiate
       tags:
         - password
       responses:
@@ -73,17 +74,24 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Contract'
+              $ref: '#/components/schemas/ClientData'
             examples: {}
         description: Reset Password Request Payload
       description: Reset Passsword
     parameters: []
+    patch:
+      summary: Complete Password Reset
+      operationId: password-reset-complete
+      responses:
+        '200':
+          description: OK
+      description: Complete Reset Passsword
 components:
   schemas:
-    Contract:
-      description: Client full contract data
+    ClientData:
+      description: Full client data
       type: object
-      title: Contract
+      title: ClientData
       x-examples: {}
       properties:
         phone:
@@ -100,6 +108,21 @@ components:
         - phone
         - contract
         - birthdate
+    JwtAuthToken:
+      description: JWT Authentication Token
+      type: object
+      title: JwtToken
+      x-examples: {}
+      properties:
+        accessToken:
+          type: string
+          description: JWT Authentication Token
+        expiresIn:
+          type: string
+          description: Token expiration time (in seconds)
+        tokenType:
+          type: string
+          description: Token type
     SignupComplete:
       description: ''
       type: object
@@ -113,7 +136,33 @@ components:
           description: OTP Token received in SMS
         pushToken:
           type: string
-          description: The FCM push token
+          description: FCM push token
+        publicKey:
+          type: string
+          description: Device public key
+        password:
+          type: string
+          description: Client password
+      required:
+        - phone
+        - otpCode
+        - password
+        - pushToken
+        - publicKey
+    ResetComplete:
+      description: ''
+      type: object
+      title: SignupComplete
+      properties:
+        phone:
+          type: string
+          description: Client phone number
+        otpCode:
+          type: string
+          description: OTP Token received in SMS
+        pushToken:
+          type: string
+          description: FCM push token
         publicKey:
           type: string
           description: Device public key

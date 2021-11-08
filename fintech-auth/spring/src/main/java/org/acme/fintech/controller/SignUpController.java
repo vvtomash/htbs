@@ -1,6 +1,8 @@
 package org.acme.fintech.controller;
 
-import org.acme.fintech.exception.TokenValidationException;
+import org.acme.fintech.exception.ClientConflictException;
+import org.acme.fintech.exception.ClientValidationException;
+import org.acme.fintech.exception.PasswordValidationException;
 import org.acme.fintech.gateway.GatewayService;
 import org.acme.fintech.gateway.SmsService;
 import org.acme.fintech.model.Client;
@@ -10,8 +12,9 @@ import org.acme.fintech.model.OtpToken;
 import org.acme.fintech.repository.ClientRepository;
 import org.acme.fintech.repository.CredentialRepository;
 import org.acme.fintech.repository.DeviceRepository;
-import org.acme.fintech.request.FullContractRequest;
+import org.acme.fintech.request.ClientDataRequest;
 import org.acme.fintech.request.SignUpComplete;
+import org.acme.fintech.response.JwtAuthenticationToken;
 import org.acme.fintech.util.ModelUtils;
 import org.acme.fintech.util.TokenUtils;
 import org.jboss.logging.Logger;
@@ -19,10 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
@@ -40,19 +40,18 @@ public class SignUpController {
     @Autowired
     private ClientRepository clientRepository;
 
-    @PostMapping("/initiate")
-    public ResponseEntity<String> initiate(@RequestBody FullContractRequest request) {
+    @PostMapping
+    public ResponseEntity<String> initiate(@RequestBody ClientDataRequest request) {
         String phone = request.getPhone();
         String contract = request.getContract();
         LocalDate birthdate = request.getBirthdate();
         try {
             Client client = clientRepository.findByPhoneAndContractAndBirthdate(phone, contract, birthdate);
             if (client == null) {
-                logger.warn(String.format("Cannot initiate signup. No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate));
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                String msg = String.format("No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate);
+                throw new ClientValidationException(msg);
             } else if (Client.Status.ACTIVE == client.getStatus()) {
-                logger.warn(String.format("Cannot initiate signup. Client %s already activated", client));
-                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+                throw new ClientValidationException(String.format("Client %s already activated", client));
             }
 
             // Generate and persist OTP token
@@ -65,24 +64,26 @@ public class SignUpController {
             gateway.send(phone, optToken.getCode());
 
             return ResponseEntity.accepted().build();
+        } catch (ClientValidationException ex) {
+            logger.error("Signup initiate failed: " + ex.getMessage(), ex);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception ex) {
-            logger.error("Signup initiating failed: " + ex.getMessage(), ex);
+            logger.error("Signup initiate failed: " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }
 
     @Transactional
-    @PostMapping("/complete")
-    public ResponseEntity<String> complete(@RequestBody SignUpComplete request) {
+    @PatchMapping
+    public ResponseEntity<JwtAuthenticationToken> complete(@RequestBody SignUpComplete request) {
         try {
             String phone = request.getPhone();
             Client client = clientRepository.findByPhone(phone);
             if (client == null) {
-                logger.warn(String.format("Cannot complete signup. No client found by phone=%s", phone));
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+                throw new ClientValidationException(String.format("No client found by phone=%s", phone));
             } else if (Client.Status.ACTIVE == client.getStatus()) {
-                logger.warn(String.format("%s already activated", client));
-                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+                throw new ClientConflictException(String.format("%s already activated", client));
+
             }
 
             // Validate OTP Token
@@ -108,14 +109,16 @@ public class SignUpController {
             clientRepository.save(client);
 
             // New JWT token
-            String jwtToken = TokenUtils.newJWSToken();
-
-            return ResponseEntity.ok(jwtToken);
-        } catch (TokenValidationException ex) {
-            logger.error("Signup completion failed: " + ex.getMessage(), ex);
+            JwtAuthenticationToken authToken = TokenUtils.newJWSToken(client);
+            return ResponseEntity.ok(authToken);
+        } catch (ClientValidationException | PasswordValidationException ex) {
+            logger.error("Signup complete failed: " + ex.getMessage(), ex);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (ClientConflictException ex) {
+            logger.error("Signup complete failed: " + ex.getMessage(), ex);
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
         } catch (Exception ex) {
-            logger.error("Signup completion failed: " + ex.getMessage(), ex);
+            logger.error("Signup complete failed: " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }
