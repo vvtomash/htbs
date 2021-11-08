@@ -85,7 +85,7 @@ public class PasswordController {
             client.setCredential(credential);
             clientRepository.save(client);
 
-            return ResponseEntity.accepted().build();
+            return ResponseEntity.ok().build();
         } catch (ClientValidationException | TokenValidationException ex) {
             logger.error("Reset Password complete failed: " + ex.getMessage(), ex);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();

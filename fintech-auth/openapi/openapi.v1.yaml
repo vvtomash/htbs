@@ -57,6 +57,54 @@ paths:
             examples: {}
         description: Complete SignUp Payload
       description: Complete Digital Bank Sign Up
+  /auth/signin:
+    post:
+      summary: Initiate Sign In
+      operationId: signin-initiate
+      tags:
+        - signup
+      responses:
+        '202':
+          description: Request Accepted
+        '403':
+          description: Request Forbidden
+        '409':
+          description: Request Conflict
+        '500':
+          description: Internal Server Error
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientData'
+            examples: {}
+        description: Initiate SignIn Payload
+      description: Initiate Digital Bank Sign In
+    patch:
+      summary: Complete Sign Up
+      operationId: signin-complete
+      tags:
+        - signup
+      responses:
+        '200':
+          description: Request Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwtAuthToken'
+        '403':
+          description: Request Forbidden
+        '500':
+          description: Internal Server Error
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SigninComplete'
+            examples: {}
+        description: Complete SignIn Payload
+      description: Complete Digital Bank Sign In
+    parameters: []
   /auth/password/reset:
     post:
       summary: Initiate Password Reset
@@ -67,9 +115,9 @@ paths:
         '202':
           description: Request Accepted
         '403':
-          description: Request Forbidden
+          description: Request Forbidden. Contact Bank
         '500':
-          description: Internal Server Error
+          description: Internal Server Error. Contact Bank
       requestBody:
         content:
           application/json:
@@ -77,14 +125,18 @@ paths:
               $ref: '#/components/schemas/ClientData'
             examples: {}
         description: Reset Password Request Payload
-      description: Reset Passsword
+      description: Initiate Reset Passsword
     parameters: []
     patch:
       summary: Complete Password Reset
       operationId: password-reset-complete
       responses:
         '200':
-          description: OK
+          description: Reset Password Success
+        '403':
+          description: Reset Password Forbidden. Contact Bank
+        '500':
+          description: Internal Server Error. Contact Bank
       description: Complete Reset Passsword
 components:
   schemas:
@@ -149,6 +201,20 @@ components:
         - password
         - pushToken
         - publicKey
+    SigninComplete:
+      description: ''
+      type: object
+      title: SigninComplete
+      properties:
+        phone:
+          type: string
+          description: Client phone number
+        otpCode:
+          type: string
+          description: OTP Token received in SMS
+      required:
+        - phone
+        - otpCode
     ResetComplete:
       description: ''
       type: object
@@ -160,21 +226,13 @@ components:
         otpCode:
           type: string
           description: OTP Token received in SMS
-        pushToken:
-          type: string
-          description: FCM push token
-        publicKey:
-          type: string
-          description: Device public key
         password:
           type: string
-          description: Client password
+          description: New client password
       required:
         - phone
         - otpCode
         - password
-        - pushToken
-        - publicKey
 tags:
   - name: signup
   - name: signin

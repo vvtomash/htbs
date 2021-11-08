@@ -1,10 +1,7 @@
 package org.acme.fintech.controller;
 
 import org.acme.fintech.model.Client;
-import org.acme.fintech.model.Credential;
-import org.acme.fintech.repository.CredentialRepository;
 import org.acme.fintech.request.VerifyPassword;
-import org.acme.fintech.util.PasswordUtil;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,9 +11,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.web.servlet.MockMvc;
-
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
@@ -30,8 +24,6 @@ public class ApiControllerTest extends AbstractController {
     @Autowired
     MockMvc mockMvc;
 
-    @Autowired
-    CredentialRepository credentialRepository;
 
     @Before
     public void cleanup() {
@@ -39,20 +31,6 @@ public class ApiControllerTest extends AbstractController {
         clientRepository.deleteAll();
     }
 
-    private void setupCredential(Client client, String password) {
-        byte[] saltBytes = PasswordUtil.randomSalt();
-        String saltString = PasswordUtil.encodeBase64(saltBytes);
-        String encodedPassword = PasswordUtil.encodePassword(password, saltBytes);
-        Credential credential = Credential.builder()
-                .createDateTime(LocalDateTime.now(ZoneOffset.UTC))
-                .password(encodedPassword)
-                .salt(saltString)
-                //.client(client)
-                .build();
-        credential = credentialRepository.save(credential);
-        client.setCredential(credential);
-        clientRepository.save(client);
-    }
 
     @Test
     public void verify_pass() throws Exception {
@@ -82,6 +60,6 @@ public class ApiControllerTest extends AbstractController {
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
                 .andDo(print())
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isForbidden());
     }
 }

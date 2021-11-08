@@ -1,5 +1,5 @@
 @startuml
-title "Logic ERD for Digital Backend"
+title "ERD for Digital Backend"
 hide circle
 'skinparam linetype ortho
 
@@ -11,64 +11,28 @@ entity "Client" as client {
     *contract: text
     *status: enum (ACTIVE, INACTIVE)
     credential: number <<FK>>
+    otp_code: varchar(6)
+    opt_exp_time: datetime
 }
 
 entity "Credential" as cred {
     *id: number <<PK>>
     --
-    *client_id: number <<FK>>
     *password: text
     *salt: text
 }
 
-entity "OTP Token" as otp {
+entity "Device" as device {
     *id: number <<PK>>
     --
-    *code: text
     *is_active: boolean
-    *expiryTimestamp: datetime
-}
-
-entity "Sign Up" as signup {
-    *id: number <<PK>>
-    --
-    *client_id: number <<FK>>
-    *token_id: number <<FK>>
-}
-
-entity "Sign In" as signin {
-    *id: number <<PK>>
-    --
-    *client_id: number <<FK>>
-    *token_id: number <<FK>>
-}
-
-entity "Reset Password" as reset {
-    *id: number <<PK>>
-    --
-    *client_id: number <<FK>>
-    *token_id: number <<FK>>
-}
-
-entity "New Device" as new_device {
-    *id: number <<PK>>
-    --
-    *client_id: number <<FK>>
-    *token_id: number <<FK>>
+    *push_token: text
+    *public_key: text
 }
 
 'Relations
-cred |o--|| client
-
-client ||--o| signup
-client ||--o| signin
-client ||--o| reset
-client ||--o| new_device
-
-signup |o--|| otp
-signin |o--|| otp
-reset |o--|| otp
-new_device |o--|| otp
+client ||--o{ cred
+client ||--o{ device
 
 
 'entity "Device" as device {
