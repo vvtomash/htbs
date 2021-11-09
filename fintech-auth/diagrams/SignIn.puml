@@ -1,5 +1,6 @@
 @startuml
 title: Sign In Flow (Regular + New Device)
+'skinparam dpi 300
 autonumber
 
 actor Client as user
@@ -25,6 +26,57 @@ as an additional layer of security
 regardless of the private key existence
 end note
 
+
+newpage
+alt Already Registered Device. Regular Sign In Flow
+mob -> mob: Prepares payload (Phone Number, Password)
+mob -> mob: Signs payload using Private Key
+mob -> api: POST /auth/signin
+note right mob
+- Payload (Phone Number, Password)
+- Header: Device Id
+- Header: Signature String
+- Header: Signature Algorithm
+end note
+api -> dbd: Lookup client record by Device Id
+api <-- dbd: Lookup result (client, credential, public key)
+api -> api: Validates signature, password, phone number
+alt Client Validation failed | Signature Validation failed | Password Validation failed | Etc ...
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignIn. Contact bank
+end
+api -> api: Generates OTP Token (Code, Expire Time)
+api -> dbd: Save OTP Token (Code, Expire Time) in client record
+api <-- dbd: Client record updated
+api -> fcm: Send OTP Code (PhoneNumber, OTP Code)
+mob  <-- api: HTTP 202 Accepted
+user <-- mob: New screen opened to enter OTP Code
+user -> user: Waits for Notification with OTP Code
+mob <-- fcm: Notification with OTP Code
+user -> mob: Enter OTP Code
+mob -> mob: Prepares payload (Phone Number, OTP Code)
+mob -> mob: Signs payload using Private Key
+mob -> api: PATCH /auth/signin
+note right mob
+- Payload (Phone Number, OTP Code)
+- Header: Device Id
+- Header: Signature String
+- Header: Signature Algorithm
+end note
+api -> dbd: Lookup client record by Device Id
+api <-- dbd: Lookup result (client, credential, public key)
+api -> api: Validates signature, phone number, OTP Token
+alt Signature Validation failed | OTP Token Validation failed
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignIn. Contact bank
+end
+api -> api: Resets OTP Token on client record
+api -> dbd: Save client record
+
+api -> api: Generate JWT Token
+mob <-- api: HTTP 200 (JWT Token)
+user <-- mob: Home screen opened
+end
 
 newpage
 alt New Device Sign In Flow
@@ -77,62 +129,9 @@ alt OTP Token Validation failed | Device Keys Validation failed
 end
 api -> api: Creates device record with:\nPush Token, Public Key, Device Id
 api -> dbd: Saves device record
-
 api -> api: Generates JWT Token
 mob <-- api: HTTP 200 (JWT Token)
 mob -> mob: Stores Private Key, Push Token, Device Id\nin device storage
-user <-- mob: Home screen opened
-end
-
-newpage
-
-alt Already Registered Device. Regular Sign In Flow
-mob -> mob: Prepares payload (Phone Number, Password)
-mob -> mob: Signs payload using Private Key
-mob -> api: POST /auth/signin
-note right mob
-- Payload (Phone Number, Password)
-- Header: Device Id
-- Header: Signature String
-- Header: Signature Algorithm
-end note
-api -> dbd: Lookup client record by Device Id
-api <-- dbd: Lookup result (client, credential, public key)
-api -> api: Validates signature, password, phone number
-alt Client Validation failed | Signature Validation failed | Password Validation failed | Etc ...
-    mob <-- api: HTTP 403 Forbidden
-    user <-- mob: Popup message: Cannot SignIn. Contact bank
-end
-api -> api: Generates OTP Token (Code, Expire Time)
-api -> dbd: Save OTP Token (Code, Expire Time) in client record
-api <-- dbd: Client record updated
-api -> fcm: Send OTP Code (PhoneNumber, OTP Code)
-mob  <-- api: HTTP 202 Accepted
-user <-- mob: New screen opened to enter OTP Code
-user -> user: Waits for Notification with OTP Code
-mob <-- fcm: Notification with OTP Code
-user -> mob: Enter OTP Code
-mob -> mob: Prepares payload (Phone Number, OTP Code)
-mob -> mob: Signs payload using Private Key
-mob -> api: PATCH /auth/signin
-note right mob
-- Payload (Phone Number, OTP Code)
-- Header: Device Id
-- Header: Signature String
-- Header: Signature Algorithm
-end note
-api -> dbd: Lookup client record by Device Id
-api <-- dbd: Lookup result (client, credential, public key)
-api -> api: Validates signature, phone number, OTP Token
-alt Signature Validation failed | OTP Token Validation failed
-    mob <-- api: HTTP 403 Forbidden
-    user <-- mob: Popup message: Cannot SignIn. Contact bank
-end
-api -> api: Resets OTP Token on client record
-api -> dbd: Save client record
-
-api -> api: Generate JWT Token
-mob <-- api: HTTP 200 (JWT Token)
 user <-- mob: Home screen opened
 end
 

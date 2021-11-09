@@ -1,5 +1,6 @@
 @startuml
 title: SignUp Flow
+'skinparam dpi 300
 autonumber
 
 actor Client as user
@@ -22,21 +23,16 @@ alt Client already activated
     mob <-- api: HTTP 409 Conflict
     user <-- mob: Popup message: Use Sign In Instead
 end
-
 note over api
 Otherwise, the client
 is eligible for SignUp
 end note
-
 api -> api: Generate OTP Token (Code, Expire Time)
 api -> dbd: Save OTP Token (Code, Expire Time) in client record
 api <-- dbd: Client record updated
 api -> sms: Send SMS (PhoneNumber, OTP Code)
-
 mob  <-- api: HTTP 202 Accepted
 user <-- mob: New screen opened
-newpage
-
 mob -> mob: Waits for user data
 alt Meanwhile executed in background
     mob -> mob: Generates keys: [PublicKey, PrivateKey]
@@ -44,13 +40,10 @@ alt Meanwhile executed in background
     mob -> fcm: Get push token
     mob <-- fcm: Push Token
 end
-
 user -> user: Waits for SMS with OTP Code
 mob <-- sms: SMS with OTP Code
-
-user -> mob: Enter OTP Code
-user -> mob: Enter Password and Confirm Password
-
+user -> mob: Enters OTP Code
+user -> mob: Enters Password and Confirms Password
 mob -> api: PATCH /auth/signup
 note right mob
 Payload includes:
@@ -67,33 +60,29 @@ alt Client not found
     mob <-- api: HTTP 403 Forbidden
     user <-- mob: Popup message: Cannot SignUp. Contact bank
 end
-
 alt Client already activated
     mob <-- api: HTTP 409 Conflict
     user <-- mob: Popup message: Use Sign In Instead
 end
-api -> api: Get OTP Token (Code, Expire Time)\nfrom client record
+api -> api: Gets OTP Token (Code, Expire Time)\nfrom client record
 api -> api: Validates OTP Token against\nreceived OTP Code
 api -> api: Validates presence of:\nPush Token, Public Key, Device Id
 alt OTP Token Validation failed | Device Keys Validation failed
     mob <-- api: HTTP 403 Forbidden
     user <-- mob: Popup message: Cannot SignUp. Contact bank
 end
-api -> api: Create credential record (Hashed Password, Salt)
-api -> dbd: Save credential record
-api -> api: Create device record with:\nPush Token, Public Key, Device Id
-api -> dbd: Save device record
-api -> api: Activate client record
+api -> api: Creates credential record (Hashed Password, Salt)
+api -> dbd: Saves credential record
+api -> api: Creates device record with:\nPush Token, Public Key, Device Id
+api -> dbd: Saves device record
+api -> api: Activates client record
 note over api
 Set status=ACTIVE
 Set otp token=NULL
 Set credential reference
 end note
-api -> dbd: Save client record
-
-'api -> api: Generate JWT Token
-'mob <-- api: HTTP 200 (JWT Token)
-mob <-- api: HTTP 200 (JWT Token)
+api -> dbd: Saves client record
+mob <-- api: HTTP 200
 mob -> mob: Stores Private Key, Push Token, Device Id\nin device storage
 user <-- mob: Home screen opened
 

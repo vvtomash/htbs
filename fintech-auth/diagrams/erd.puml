@@ -1,15 +1,16 @@
 @startuml
 title "ERD for Digital Backend"
+'skinparam dpi 300
+skinparam linetype ortho
 hide circle
-'skinparam linetype ortho
 
 entity "Client" as client {
     *id: number <<PK>>
     --
-    *phone: text
+    *phone: varchar(30)
     *birthday: date
-    *contract: text
-    *status: enum (ACTIVE, INACTIVE)
+    *contract: varchar(30)
+    *status: text enum (ACTIVE, INACTIVE)
     credential: number <<FK>>
     otp_code: varchar(6)
     opt_exp_time: datetime
@@ -28,21 +29,10 @@ entity "Device" as device {
     *is_active: boolean
     *push_token: text
     *public_key: text
+    *device_id: varchar(300)
 }
 
-'Relations
 client ||--o{ cred
 client ||--o{ device
-
-
-'entity "Device" as device {
-'  *id: uuid <<PK>>
-'  --
-'  *activated_at: datetime
-'  public_key: text
-'  push_token: text
-'}
-'
-'cli ||..o| device
 
 @enduml
