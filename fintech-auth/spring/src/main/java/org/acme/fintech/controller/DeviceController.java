@@ -1,16 +1,20 @@
 package org.acme.fintech.controller;
 
+import org.acme.fintech.exception.ClientConflictException;
 import org.acme.fintech.exception.ClientValidationException;
-import org.acme.fintech.exception.TokenValidationException;
+import org.acme.fintech.exception.PasswordValidationException;
 import org.acme.fintech.gateway.GatewayService;
 import org.acme.fintech.gateway.SmsService;
 import org.acme.fintech.model.Client;
 import org.acme.fintech.model.Credential;
+import org.acme.fintech.model.Device;
 import org.acme.fintech.model.OtpToken;
 import org.acme.fintech.repository.ClientRepository;
 import org.acme.fintech.repository.CredentialRepository;
+import org.acme.fintech.repository.DeviceRepository;
 import org.acme.fintech.request.ClientDataRequest;
-import org.acme.fintech.request.ResetComplete;
+import org.acme.fintech.request.SignUpComplete;
+import org.acme.fintech.response.JwtAuthenticationToken;
 import org.acme.fintech.util.ModelUtils;
 import org.acme.fintech.util.TokenUtils;
 import org.jboss.logging.Logger;
@@ -22,18 +26,21 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
-@RestController
-@RequestMapping("/auth/password")
-public class PasswordController {
-    private static final Logger logger = Logger.getLogger(PasswordController.class);
+@RestController()
+@RequestMapping("/auth/device")
+public class DeviceController {
+    private static final Logger logger = Logger.getLogger(DeviceController.class);
 
     @Autowired
     private CredentialRepository credentialRepository;
 
     @Autowired
+    private DeviceRepository deviceRepository;
+
+    @Autowired
     private ClientRepository clientRepository;
 
-    @PostMapping("/reset")
+    @PostMapping
     public ResponseEntity<String> initiate(@RequestBody ClientDataRequest request) {
         String phone = request.getPhone();
         String contract = request.getContract();
@@ -41,7 +48,10 @@ public class PasswordController {
         try {
             Client client = clientRepository.findByPhoneAndContractAndBirthdate(phone, contract, birthdate);
             if (client == null) {
-                throw new ClientValidationException(String.format("No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate));
+                String msg = String.format("No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate);
+                throw new ClientValidationException(msg);
+            } else if (Client.Status.ACTIVE == client.getStatus()) {
+                throw new ClientValidationException(String.format("Client %s already activated", client));
             }
 
             // Generate and persist OTP token
@@ -55,22 +65,25 @@ public class PasswordController {
 
             return ResponseEntity.accepted().build();
         } catch (ClientValidationException ex) {
-            logger.error("Reset Password failed: " + ex.getMessage(), ex);
+            logger.error("Signup initiate failed: " + ex.getMessage(), ex);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception ex) {
-            logger.error("Reset Password failed: " + ex.getMessage(), ex);
+            logger.error("Signup initiate failed: " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }
 
     @Transactional
-    @PatchMapping("/reset")
-    public ResponseEntity<String> complete(@RequestBody ResetComplete request) {
+    @PatchMapping
+    public ResponseEntity<JwtAuthenticationToken> complete(@RequestBody SignUpComplete request) {
         try {
             String phone = request.getPhone();
             Client client = clientRepository.findByPhone(phone);
             if (client == null) {
                 throw new ClientValidationException(String.format("No client found by phone=%s", phone));
+            } else if (Client.Status.ACTIVE == client.getStatus()) {
+                throw new ClientConflictException(String.format("%s already activated", client));
+
             }
 
             // Validate OTP Token
@@ -80,17 +93,32 @@ public class PasswordController {
             Credential credential = ModelUtils.newCredential(client, request.getPassword());
             credential = credentialRepository.save(credential);
 
-            // Activate credential
+            // Create device
+            Device device = Device.builder()
+                    .pushToken(request.getPushToken())
+                    .publicKey(request.getPublicKey())
+                    .isActive(true)
+                    .client(client)
+                    .build();
+            deviceRepository.save(device);
+
+            // Activate client and set credential
             client.setOtpToken(null);
+            client.setStatus(Client.Status.ACTIVE);
             client.setCredential(credential);
             clientRepository.save(client);
 
-            return ResponseEntity.ok().build();
-        } catch (ClientValidationException | TokenValidationException ex) {
-            logger.error("Reset Password complete failed: " + ex.getMessage(), ex);
+            // New JWT token
+            JwtAuthenticationToken authToken = TokenUtils.newJWSToken(client);
+            return ResponseEntity.ok(authToken);
+        } catch (ClientValidationException | PasswordValidationException ex) {
+            logger.error("Signup complete failed: " + ex.getMessage(), ex);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (ClientConflictException ex) {
+            logger.error("Signup complete failed: " + ex.getMessage(), ex);
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
         } catch (Exception ex) {
-            logger.error("Reset Password complete failed: " + ex.getMessage(), ex);
+            logger.error("Signup complete failed: " + ex.getMessage(), ex);
             return ResponseEntity.internalServerError().build();
         }
     }

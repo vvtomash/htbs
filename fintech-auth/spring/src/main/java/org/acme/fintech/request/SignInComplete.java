@@ -10,4 +10,6 @@ import lombok.*;
 public class SignInComplete {
     private String phone;
     private String otpCode;
+    private String pushToken;
+    private String publicKey;
 }

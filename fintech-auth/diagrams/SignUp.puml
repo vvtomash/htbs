@@ -7,11 +7,11 @@ participant Mobile as mob
 participant "API Digital" as api
 participant "DB Digital" as dbd
 participant "SMS Gateway" as sms
-participant "FCM Gateway" as fcm
+participant "Push Gateway" as fcm
 
 user -> mob: Selects: SignUp (menu/button)
 user -> mob: Enters: PhoneNumber, Birthday, Contract
-mob -> api: POST /auth/signup/initiate (PhoneNumber, Birthday, Contract)
+mob -> api: POST /auth/signup (PhoneNumber, Birthday, Contract)
 api -> dbd: Lookup client record by:\nPhoneNumber + Birthday + Contract
 api <-- dbd: Lookup result
 alt Client not found
@@ -20,7 +20,7 @@ alt Client not found
 end
 alt Client already activated
     mob <-- api: HTTP 409 Conflict
-    user <-- mob: Popup message: Use Sign In or Password Reset
+    user <-- mob: Popup message: Use Sign In Instead
 end
 
 note over api
@@ -40,6 +40,7 @@ newpage
 mob -> mob: Waits for user data
 alt Meanwhile executed in background
     mob -> mob: Generates keys: [PublicKey, PrivateKey]
+    mob -> mob: Generates PublicKey Fingerprint.\nIt will serve as Device Id
     mob -> fcm: Get push token
     mob <-- fcm: Push Token
 end
@@ -50,7 +51,16 @@ mob <-- sms: SMS with OTP Code
 user -> mob: Enter OTP Code
 user -> mob: Enter Password and Confirm Password
 
-mob -> api: POST /auth/signup/complete \nPhoneNumber, OTP Code,\nPush Token, Public Key,\nPassword
+mob -> api: PATCH /auth/signup
+note right mob
+Payload includes:
+- Phone Number
+- Push Token
+- Public Key
+- Device Id (Fingerprint)
+- Password
+- OTP Code
+end note
 api -> dbd: Lookup client record by PhoneNumber
 api <-- dbd: Lookup result
 alt Client not found
@@ -60,21 +70,18 @@ end
 
 alt Client already activated
     mob <-- api: HTTP 409 Conflict
-    user <-- mob: Popup message: Use Sign In or Password Reset
+    user <-- mob: Popup message: Use Sign In Instead
 end
 api -> api: Get OTP Token (Code, Expire Time)\nfrom client record
-api -> api: Validate OTP Token against\nreceived OTP Code
-alt Invalid token
+api -> api: Validates OTP Token against\nreceived OTP Code
+api -> api: Validates presence of:\nPush Token, Public Key, Device Id
+alt OTP Token Validation failed | Device Keys Validation failed
     mob <-- api: HTTP 403 Forbidden
     user <-- mob: Popup message: Cannot SignUp. Contact bank
 end
-note over api
-Token is valid
-end note
-
 api -> api: Create credential record (Hashed Password, Salt)
 api -> dbd: Save credential record
-api -> api: Create device record (Push Token, Public Key)
+api -> api: Create device record with:\nPush Token, Public Key, Device Id
 api -> dbd: Save device record
 api -> api: Activate client record
 note over api
@@ -84,9 +91,10 @@ Set credential reference
 end note
 api -> dbd: Save client record
 
-api -> api: Generate JWT Token
+'api -> api: Generate JWT Token
+'mob <-- api: HTTP 200 (JWT Token)
 mob <-- api: HTTP 200 (JWT Token)
-mob -> mob: Stores private key\nin device storage
+mob -> mob: Stores Private Key, Push Token, Device Id\nin device storage
 user <-- mob: Home screen opened
 
 @enduml

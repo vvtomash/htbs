@@ -2,17 +2,19 @@ package org.acme.fintech.util;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Encoders;
 import io.jsonwebtoken.security.Keys;
 import org.acme.fintech.exception.TokenValidationException;
 import org.acme.fintech.model.Client;
 import org.acme.fintech.model.OtpToken;
 import org.acme.fintech.response.JwtAuthenticationToken;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.security.Key;
-import java.security.KeyPair;
-import java.security.PrivateKey;
-import java.security.PublicKey;
+import java.security.*;
+import java.security.interfaces.RSAPrivateCrtKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.RSAPublicKeySpec;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Date;
@@ -54,15 +56,17 @@ public class TokenUtils {
     }
 
     public static void main(String[] args) throws Exception {
-        /*
+        KeyPair keyPair = Keys.keyPairFor(SignatureAlgorithm.RS256);
+        RSAPrivateCrtKey privateKey = (RSAPrivateCrtKey)keyPair.getPrivate();
+        RSAPublicKey publicKey = (RSAPublicKey)keyPair.getPublic();
+
         String publicKey64 = Encoders.BASE64.encode(publicKey.getEncoded());
         System.out.println("original publicKey base64: " + publicKey64);
 
         String sha256Hex = DigestUtils.sha256Hex(publicKey.getEncoded());
         System.out.println("original publicKey finger: " + sha256Hex);
 
-        RSAPrivateCrtKey rsaPrivateCrtKey = (RSAPrivateCrtKey)privateKey;
-        RSAPublicKeySpec publicKeySpec = new RSAPublicKeySpec(rsaPrivateCrtKey.getModulus(), rsaPrivateCrtKey.getPublicExponent());
+        RSAPublicKeySpec publicKeySpec = new RSAPublicKeySpec(privateKey.getModulus(), privateKey.getPublicExponent());
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PublicKey restoredPublicKey = keyFactory.generatePublic(publicKeySpec);
 
@@ -71,8 +75,9 @@ public class TokenUtils {
 
         sha256Hex = DigestUtils.sha256Hex(restoredPublicKey.getEncoded());
         System.out.println("restored publicKey finger: " + sha256Hex);
-        */
 
+
+        /*
         KeyPair keyPair = Keys.keyPairFor(SignatureAlgorithm.RS256);
         PrivateKey privateKey = keyPair.getPrivate();
         PublicKey publicKey = keyPair.getPublic();
@@ -92,5 +97,6 @@ public class TokenUtils {
                 .parseClaimsJws(jwtToken)
                 .getBody();
         System.out.println("body = " + body);
+         */
     }
 }

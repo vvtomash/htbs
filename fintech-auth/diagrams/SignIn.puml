@@ -1,38 +1,140 @@
 @startuml
-title: SignIn Flow
-
-participant Mobile as Mob
-participant "Push Gateway" as push
-participant DigitalDB
-participant "Keycloak + Extension" as Keycloak
-
+title: Sign In Flow (Regular + New Device)
 autonumber
-Mob -> Keycloak: POST /auth/login (PhoneNumber, Passcode)
-activate Mob
-activate Keycloak
-Keycloak -> DigitalDB: findClientRecord(PhoneNumber, Birthday): ClientRecord
-activate DigitalDB
-DigitalDB --> Keycloak: ClientRecord
-deactivate DigitalDB
-alt ClientRecord is NOT found
-    Keycloak --> Mob: HTTP 202
+
+actor Client as user
+participant Mobile as mob
+participant "API Digital" as api
+participant "DB Digital" as dbd
+participant "SMS Gateway" as sms
+participant "Push Gateway" as fcm
+
+user -> mob: Selects: SignIn (menu/button)
+mob -> mob: Checks device storage
+note over mob
+Determines whether it is
+a new device or already registered device
+
+It checks internal storage for Private Key
+end note
+
+user -> mob: Enters: Phone Number, Password
+note over mob
+Phone Number and Password are required
+as an additional layer of security
+regardless of the private key existence
+end note
+
+
+newpage
+alt New Device Sign In Flow
+mob -> api: POST /auth/signin (Phone Number, Password)
+api -> api: Determines the new device
+api -> dbd: Lookup client record by Phone Number
+api <-- dbd: Lookup result (client, credential)
+api -> api: Validates client record, password
+alt Client Validation failed | Password Validation failed
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignIn. Contact bank
 end
-Keycloak -> Keycloak: saveInOTPContext(ClientRecord.id)
-Keycloak -> Keycloak: generateOTP(): OTP
-Keycloak --> Mob: HTTP 202
-deactivate Mob
-Keycloak -> push: sendPushNotification(recipient=PushToken, data=[OTP])
-deactivate Keycloak
-activate push
-push -> Mob: Push notification with OTP
-deactivate push
-activate Mob
-Mob -> Mob: generateSignature(data=[OTP], key=PrivateKey): Signature
-Mob -> Keycloak: /auth/login/complete (OTP, Signature)
-activate Keycloak
-Keycloak -> Keycloak: validateSignature(Signature)
-Keycloak -> Keycloak: validateOTP(OTP)
-Keycloak -> Keycloak: generateJWT(scope="regular_user"): JWT
-Keycloak --> Mob: HTTP 200 {jwt: JWT}
-deactivate Keycloak
+api -> api: Generates OTP Token (Code, Expire Time)
+api -> dbd: Save OTP Token (Code, Expire Time) in client record
+api <-- dbd: Client record updated
+api -> sms: Send OTP Code (PhoneNumber, OTP Code)
+mob  <-- api: HTTP 202 Accepted
+user <-- mob: New screen opened to enter OTP Code
+mob -> mob: Waits for user data
+alt Meanwhile executed in background
+    mob -> mob: Generates keys: [PublicKey, PrivateKey]
+    mob -> mob: Generates PublicKey Fingerprint.\nIt will serve as Device Id
+    mob -> fcm: Get push token
+    mob <-- fcm: Push Token
+end
+user -> user: Waits for SMS with OTP Code
+mob <-- sms: SMS with OTP Code
+user -> mob: Enter OTP Code
+mob -> api: PATCH /auth/signin
+note right mob
+Payload includes:
+- Phone Number
+- Push Token
+- Public Key
+- Device Id (Fingerprint)
+- OTP Code
+end note
+api -> dbd: Lookup client record by PhoneNumber
+api <-- dbd: Lookup result
+alt Client not found
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignIn. Contact bank
+end
+api -> api: Get OTP Token (Code, Expire Time)\nfrom client record
+api -> api: Validates OTP Token against\nreceived OTP Code
+api -> api: Validates presence of:\nPush Token, Public Key, Device Id
+alt OTP Token Validation failed | Device Keys Validation failed
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignIn. Contact bank
+end
+api -> api: Creates device record with:\nPush Token, Public Key, Device Id
+api -> dbd: Saves device record
+
+api -> api: Generates JWT Token
+mob <-- api: HTTP 200 (JWT Token)
+mob -> mob: Stores Private Key, Push Token, Device Id\nin device storage
+user <-- mob: Home screen opened
+end
+
+newpage
+
+alt Already Registered Device. Regular Sign In Flow
+mob -> mob: Prepares payload (Phone Number, Password)
+mob -> mob: Signs payload using Private Key
+mob -> api: POST /auth/signin
+note right mob
+- Payload (Phone Number, Password)
+- Header: Device Id
+- Header: Signature String
+- Header: Signature Algorithm
+end note
+api -> dbd: Lookup client record by Device Id
+api <-- dbd: Lookup result (client, credential, public key)
+api -> api: Validates signature, password, phone number
+alt Client Validation failed | Signature Validation failed | Password Validation failed | Etc ...
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignIn. Contact bank
+end
+api -> api: Generates OTP Token (Code, Expire Time)
+api -> dbd: Save OTP Token (Code, Expire Time) in client record
+api <-- dbd: Client record updated
+api -> fcm: Send OTP Code (PhoneNumber, OTP Code)
+mob  <-- api: HTTP 202 Accepted
+user <-- mob: New screen opened to enter OTP Code
+user -> user: Waits for Notification with OTP Code
+mob <-- fcm: Notification with OTP Code
+user -> mob: Enter OTP Code
+mob -> mob: Prepares payload (Phone Number, OTP Code)
+mob -> mob: Signs payload using Private Key
+mob -> api: PATCH /auth/signin
+note right mob
+- Payload (Phone Number, OTP Code)
+- Header: Device Id
+- Header: Signature String
+- Header: Signature Algorithm
+end note
+api -> dbd: Lookup client record by Device Id
+api <-- dbd: Lookup result (client, credential, public key)
+api -> api: Validates signature, phone number, OTP Token
+alt Signature Validation failed | OTP Token Validation failed
+    mob <-- api: HTTP 403 Forbidden
+    user <-- mob: Popup message: Cannot SignIn. Contact bank
+end
+api -> api: Resets OTP Token on client record
+api -> dbd: Save client record
+
+api -> api: Generate JWT Token
+mob <-- api: HTTP 200 (JWT Token)
+user <-- mob: Home screen opened
+end
+
+
 @enduml

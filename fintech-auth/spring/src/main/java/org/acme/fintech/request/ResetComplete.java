@@ -7,7 +7,7 @@ import lombok.*;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ResetPasswordComplete {
+public class ResetComplete {
     private String phone;
     private String otpCode;
     private String password;

@@ -3,6 +3,7 @@ package org.acme.fintech.controller;
 import org.acme.fintech.exception.ClientValidationException;
 import org.acme.fintech.exception.PasswordValidationException;
 import org.acme.fintech.exception.TokenValidationException;
+import org.acme.fintech.gateway.FcmService;
 import org.acme.fintech.gateway.GatewayService;
 import org.acme.fintech.gateway.SmsService;
 import org.acme.fintech.model.Client;
@@ -58,7 +59,7 @@ public class SignInController {
             clientRepository.save(client);
 
             // Send OTP token
-            GatewayService gateway = new SmsService();
+            GatewayService gateway = new FcmService();
             gateway.send(phone, optToken.getCode());
 
             return ResponseEntity.accepted().build();
