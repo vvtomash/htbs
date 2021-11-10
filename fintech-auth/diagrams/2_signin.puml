@@ -25,6 +25,11 @@ Phone Number and Password are required
 as an additional layer of security
 regardless of the private key existence
 end note
+note over mob
+See two separate flows for:
+- Registered Device. Regular Sign In Flow
+- New Device. Sign In Flow
+end note
 
 
 newpage
@@ -36,7 +41,6 @@ note right mob
 - Payload (Phone Number, Password)
 - Header: Device Id
 - Header: Signature String
-- Header: Signature Algorithm
 end note
 api -> dbd: Lookup client record by Device Id
 api <-- dbd: Lookup result (client, credential, public key)
@@ -61,7 +65,6 @@ note right mob
 - Payload (Phone Number, OTP Code)
 - Header: Device Id
 - Header: Signature String
-- Header: Signature Algorithm
 end note
 api -> dbd: Lookup client record by Device Id
 api <-- dbd: Lookup result (client, credential, public key)

@@ -19,21 +19,16 @@ alt Client not found
     mob <-- api: HTTP 403 Forbidden
     user <-- mob: Popup message: Cannot SignUp. Contact bank
 end
-alt Client already activated
+alt Client already activated (status == ACTIVE)
     mob <-- api: HTTP 409 Conflict
     user <-- mob: Popup message: Use Sign In Instead
 end
-note over api
-Otherwise, the client
-is eligible for SignUp
-end note
 api -> api: Generate OTP Token (Code, Expire Time)
 api -> dbd: Save OTP Token (Code, Expire Time) in client record
 api <-- dbd: Client record updated
 api -> sms: Send SMS (PhoneNumber, OTP Code)
 mob  <-- api: HTTP 202 Accepted
 user <-- mob: New screen opened
-mob -> mob: Waits for user data
 alt Meanwhile executed in background
     mob -> mob: Generates keys: [PublicKey, PrivateKey]
     mob -> mob: Generates PublicKey Fingerprint.\nIt will serve as Device Id
@@ -60,7 +55,7 @@ alt Client not found
     mob <-- api: HTTP 403 Forbidden
     user <-- mob: Popup message: Cannot SignUp. Contact bank
 end
-alt Client already activated
+alt Client already activated (status == ACTIVE)
     mob <-- api: HTTP 409 Conflict
     user <-- mob: Popup message: Use Sign In Instead
 end
@@ -82,7 +77,8 @@ Set otp token=NULL
 Set credential reference
 end note
 api -> dbd: Saves client record
-mob <-- api: HTTP 200
+api -> api: Generates JWT Token
+mob <-- api: HTTP 200 (JWT Token)
 mob -> mob: Stores Private Key, Push Token, Device Id\nin device storage
 user <-- mob: Home screen opened
 

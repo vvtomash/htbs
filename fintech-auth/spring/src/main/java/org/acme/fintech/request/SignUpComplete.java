@@ -13,4 +13,5 @@ public class SignUpComplete {
     private String password;
     private String pushToken;
     private String publicKey;
+    private String deviceId;
 }

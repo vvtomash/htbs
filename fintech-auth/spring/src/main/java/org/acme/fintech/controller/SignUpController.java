@@ -17,6 +17,7 @@ import org.acme.fintech.request.SignUpComplete;
 import org.acme.fintech.response.JwtAuthenticationToken;
 import org.acme.fintech.util.ModelUtils;
 import org.acme.fintech.util.TokenUtils;
+import org.hibernate.mapping.Bag;
 import org.jboss.logging.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -51,7 +52,7 @@ public class SignUpController {
                 String msg = String.format("No client found for phone=%s, contract=%s, birthdate=%s", phone, contract, birthdate);
                 throw new ClientValidationException(msg);
             } else if (Client.Status.ACTIVE == client.getStatus()) {
-                throw new ClientValidationException(String.format("Client %s already activated", client));
+                throw new ClientValidationException(String.format("%s already activated", client));
             }
 
             // Generate and persist OTP token
@@ -73,8 +74,8 @@ public class SignUpController {
         }
     }
 
-    @Transactional
     @PatchMapping
+    @Transactional
     public ResponseEntity<JwtAuthenticationToken> complete(@RequestBody SignUpComplete request) {
         try {
             String phone = request.getPhone();
@@ -87,7 +88,8 @@ public class SignUpController {
             }
 
             // Validate OTP Token
-            TokenUtils.validateOtpToken(client.getOtpToken(), request.getOtpCode());
+            OtpToken optToken = client.getOtpToken();
+            TokenUtils.validateOtpToken(optToken, request.getOtpCode());
 
             // Generate credential
             Credential credential = ModelUtils.newCredential(client, request.getPassword());
@@ -97,6 +99,7 @@ public class SignUpController {
             Device device = Device.builder()
                     .pushToken(request.getPushToken())
                     .publicKey(request.getPublicKey())
+                    .deviceId(request.getDeviceId())
                     .isActive(true)
                     .client(client)
                     .build();

@@ -1,6 +1,6 @@
 @startuml
 title "ERD for Digital Backend"
-'skinparam dpi 300
+skinparam dpi 130
 skinparam linetype ortho
 hide circle
 

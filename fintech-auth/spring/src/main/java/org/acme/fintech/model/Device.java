@@ -27,6 +27,9 @@ public class Device {
     @Column(name = "public_key", columnDefinition = "TEXT")
     private String publicKey;
 
+    @Column(name = "device_id")
+    private String deviceId;
+
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
     private Client client;
