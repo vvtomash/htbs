@@ -1,4 +1,5 @@
 @startuml
+title Order Sequence Diagram
 autonumber
 
 actor Client as user
@@ -7,7 +8,7 @@ participant "Core Bank (Locking)" as lock
 'participant "Core Bank (Transfer)" as transf
 participant "Portmone" as ptm
 
-user -> mob: Fill mobile
+user -> mob: Fills mobile number, amount
 'activate mob
 'deactivate mob
 
@@ -18,11 +19,11 @@ user -> mob: Confirms action
 
 mob -> mob: Create order (PENDING_LOCK)
 ' ???
-mob -> lock: Credit amount lock (POST SYNC)
+mob -> lock: Request amount lock (POST SYNC)
 mob <-- lock: Lock result
-alt Lock not okay
+alt Lock failed (Not Retriable status)
 user <-- mob: Failed
-else Temporary failure. Try again
+else Temporary failure. Retriable status
 user <-- mob: Try again
 end
 
@@ -47,7 +48,7 @@ end alt
 alt Not paid | Retriable status
 mob -> ptm: Pay bill POST /bills.pay
 mob <-- ptm: Payment result
-mob -> mob: Update order (PAID)
+mob -> mob: Update order (PAYED)
 end alt
 alt Failed
 end alt
