@@ -1,0 +1,66 @@
+@startuml
+autonumber
+
+actor Client as user
+participant MobilePaymentsApi as mob
+participant "Core Bank (Locking)" as lock
+'participant "Core Bank (Transfer)" as transf
+participant "Portmone" as ptm
+
+user -> mob: Fill mobile
+'activate mob
+'deactivate mob
+
+mob -> ptm: Get payee information. GET /bills.payees
+mob <-- ptm: Payee information
+user <-- mob: Payee information displayed
+user -> mob: Confirms action
+
+mob -> mob: Create order (PENDING_LOCK)
+' ???
+mob -> lock: Credit amount lock (POST SYNC)
+mob <-- lock: Lock result
+alt Lock not okay
+user <-- mob: Failed
+else Temporary failure. Try again
+user <-- mob: Try again
+end
+
+mob -> mob: Lock result (?) stored
+user <-- mob: Accepted (success)
+
+alt Scope: Create BILL
+mob -> mob: Update order (PENDING_BILL)
+mob -> ptm: Fill mobile POST /bills.createByPhone
+mob <-- ptm: Created Bill (Bill ID)
+mob -> mob: Update order (PENDING_PAY, Bill ID)
+else After X retry attempts - fail order
+mob -> mob: [Scope: Fail order]
+end scope
+
+alt Scope: Pay BILL
+mob -> ptm: Get bill status GET /bills.get(Bill ID)
+mob <-- ptm: Bill status
+alt Not Retriable status
+mob -> mob: [Scope: Fail order]
+end alt
+alt Not paid | Retriable status
+mob -> ptm: Pay bill POST /bills.pay
+mob <-- ptm: Payment result
+mob -> mob: Update order (PAID)
+end alt
+alt Failed
+end alt
+else After X retry attempts - fail order
+mob -> mob: [Scope: Fail order]
+end scope
+
+alt Scope: Fail order
+mob -> lock: Release lock
+mob -> mob: Update order (FAILED)
+note over mob
+Client notification will happen (ouf of scope)
+end note
+end scope
+
+@enduml

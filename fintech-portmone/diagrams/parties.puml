@@ -1,0 +1,14 @@
+@startuml
+'https://plantuml.com/component-diagram
+actor Client as user
+actor "Bank Support" as support
+[Portmone] as port
+
+"Creates fill mobile order" as (uc1)
+"Create payment" as (uc1)
+user --> uc1
+
+
+
+
+@enduml

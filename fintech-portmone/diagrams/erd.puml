@@ -1,0 +1,76 @@
+@startuml
+'title "ERD for Portmone Integration"
+'skinparam dpi 130
+skinparam linetype ortho
+hide circle
+
+entity "Client" as client {
+    *id: number <<PK>>
+    --
+    *phone: varchar(30)
+    *birthday: date
+    *contract: varchar(30)
+}
+
+entity "Account" as acc {
+    *id: number <<PK>>
+    --
+    *iban: string
+    *balance: double
+}
+
+entity "Order" as order {
+    *id: number <<PK>>
+    --
+    *number: string (generated)
+    *amount: double
+    *status: enum (TBD)
+    bill_id: string (Portmone Bill ID)
+    payment_date: timestamp
+}
+
+entity "Payee" as payee {
+    *id: number <<PK>>
+    --
+    *name: text
+    *zkpo: text
+    *bank_name: text
+    *bank_code: text
+    *bank_account: text
+}
+
+entity "Transaction" as trxn {
+    *id: number <<PK>>
+    --
+    *amount: double
+    '*status: enum (?)
+    '*type: enum (PAYMENT, RETURN)
+}
+
+entity "Commission" as comm {
+    *id: number <<PK>>
+    --
+    *type: enum (BANK, PORTMONE)
+    *status: enum (??)
+    *amount: double
+}
+
+entity "PortmoneRegisterHistory" as prh {
+    *id
+    --
+    *batch_number: text
+    *payee_id: text
+    *date: date
+}
+
+client ||--o{ acc
+client ||--o{ order
+order ||--o{ acc
+order ||--o{ trxn
+order }o--|| payee
+payee ||--o{ prh
+
+'order ||--o{ comm
+'order ||--o| port
+
+@enduml

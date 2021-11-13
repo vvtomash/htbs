@@ -1,0 +1,25 @@
+@startuml
+'https://plantuml.com/state-diagram
+'scale 350 width
+
+[*] --> PENDING_LOCK
+
+PENDING_LOCK -> FAILED
+PENDING_BILL --> FAILED
+PENDING_PAY --> FAILED
+
+PENDING_LOCK -> PENDING_BILL
+PENDING_BILL -> PENDING_PAY
+PENDING_PAY --> PAID
+
+FAILED --> [*]
+PAID --> [*]
+
+' Comments
+PENDING_LOCK: Acquiring money lock
+PENDING_BILL: Acquiring Portmone Bill
+PENDING_PAY: Acquiring Portmone Payment
+FAILED: Fulfillment error
+PAID: Order paid
+
+@enduml
