@@ -69,6 +69,7 @@ order ||--o{ acc
 order ||--o{ trxn
 order }o--|| payee
 payee ||--o{ prh
+trxn ||--|{ comm
 
 'order ||--o{ comm
 'order ||--o| port
