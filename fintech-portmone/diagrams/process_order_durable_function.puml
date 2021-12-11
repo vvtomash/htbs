@@ -1,0 +1,77 @@
+@startuml
+title Order Sequence Diagram
+autonumber
+
+actor Client as user
+
+participant OrderClientFunction as ocf
+participant OrderOrchestrator as oo
+participant "LockFund:Processing" as lf
+participant "CreateBill:Portmone" as cb
+participant "PayBill:Portmone" as pb
+participant "CompletePayment:OpenApi" as cp
+participant "EventNotify:RabbitMQ" as en
+
+user -> ocf: processPayment(phone, amount)
+ocf -> oo: processPayment(phone, amount)
+oo --> ocf: orchestrationGuid
+
+ocf --> user: accepted
+group Lock User Fund
+    loop 10 times AND !(Success OR Fail)
+        oo -> lf: lockFund(amount)
+        alt Succes
+            lf --> oo: result
+        else Fail
+            lf --> oo: fail
+            oo -> en: notifyUser(lockFail)
+        else Retry
+            lf --> oo: retry
+        end
+    end loop
+end group
+
+group Create Portmone Bill
+    loop 10 times AND Retry
+        oo -> cb: createBill
+        alt Succes
+            cb --> oo: result
+        else Fail
+            cb --> oo: fail
+            oo -> en: notifyUser(fail)
+            ' игнорируем результат, потому что мы разлочимся автоматом
+            oo -> lf: unlockFund(amount)
+        else Retry
+            cb --> oo: retry
+        end
+    end loop
+end group
+
+group Pay Portmone Bill
+    loop 10 times AND Retry
+        ' идемпотентная функция
+        oo -> pb: payBill
+        alt Success
+            pb --> oo: result
+        else Fail
+            pb --> oo: fail
+            oo -> en: notifyUser(fail)
+            oo -> lf: unlockFund(amount)
+        else Retry
+            pb --> oo: retry
+        end
+    end loop
+end group
+
+group completePayment
+    oo -> en: notifyUser(success)
+    loop 10 times AND Retry
+        oo -> cp: completePayment()
+        alt Success
+            cp --> oo: result
+        else Fail
+            cp --> oo: fail
+        end
+    end loop
+end group
+@enduml
