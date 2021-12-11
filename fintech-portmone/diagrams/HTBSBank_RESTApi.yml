@@ -1,0 +1,104 @@
+openapi: 3.0.3
+
+info:
+  description: "API for official bank's mobile application integration"
+  version: "1.0.0"
+  title: "HTBSBank Api"
+
+servers:
+  - url: "https://api.htbsbank.com/v1"
+    description: Production Api
+  - url: "https://dev-api.htbsbank.com/v1"
+    description: Development Api
+
+paths:
+  /payments:
+    post:
+      tags:
+        - "Payments"
+      summary: "Initiate money transfer"
+      requestBody:
+        required: true
+        content:
+          application/vnd.payments.topUpMobile+json:
+            schema:
+              $ref: "#/components/schemas/TopUpMobileRequest"
+      responses:
+        "202":
+          description: "Accepted"
+        "400":
+          description: "Invalid parameters"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidParamsError'
+        "403":
+          description: "Insufficient funds"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsufficientFundsError'
+#        "404":
+#          description: "Mobile phone is not found in mobile operator database"
+#          content:
+#            application/json:
+#              schema:
+#                $ref: '#/components/schemas/NotFoundError'
+        "424":
+          description: "Failed Dependency: retry after a while"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetryOperationError'
+
+components:
+  schemas:
+    TopUpMobileRequest:
+      type: "object"
+      required:
+        - phone_number
+        - amount
+      properties:
+        phone_number:
+          type: string
+          format: phone
+          example: '+380677005580'
+          pattern: '^\+380\d{9}$'
+          description: "Mobile number to top-up. Ukrainian mobile number."
+        amount:
+          type: number
+          example: "12500"
+          pattern: '^[1-9]\d*'
+          description: "Positive number"
+    InsufficientFundsError:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          example: 'insufficient_funds'
+    InvalidParamsError:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          example: 'invalid'
+#    NotFoundError:
+#      type: object
+#      required:
+#        - code
+#      properties:
+#        code:
+#          type: string
+#          example: 'not_found'
+    RetryOperationError:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          example: 'retry_operation'

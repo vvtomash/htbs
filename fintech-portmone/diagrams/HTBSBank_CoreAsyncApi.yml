@@ -1,0 +1,55 @@
+asyncapi: 2.2.0
+info:
+  title: Digital HTBSBank System
+  version: 1.0.0
+
+servers:
+  production:
+    url: prod.htbsbank.com
+    protocol: kafka
+  dev:
+    url: dev.htbsbank.com
+    protocol: kafka
+
+channels:
+  payment:
+    subscribe:
+      message:
+        $ref: '#/components/messages/Payment'
+
+components:
+  schemas:
+    Payment:
+      type: object
+      required:
+        - origin_iban
+        - recipient_iban
+        - amount
+      properties:
+        origin_iban:
+          type: string
+          example: UA636693585231276878157373565
+          pattern: '^UA\d{27}$'
+          description: "Origin account's IBAN"
+        recipient_iban:
+          type: string
+          example: UA853996220000000260012335661
+          pattern: '^UA\d{27}$'
+          description: "Recipient account's IBAN"
+        amount:
+          type: number
+          example: 12000
+          pattern: '^[1-9]\d*'
+          description: "Transfer sum, in cents."
+        description:
+          type: string
+          example: "Loan #01FHJFNHG9WWEDDZ4ZPYAXA5DF. Payment #2"
+          description: "Payment text descripion"
+        reference:
+          type: string
+          example: CKWHRE41G0000D1546JWIAZYS
+          description: "Payment text descripion"
+  messages:
+    Payment:
+      payload:
+        $ref: '#/components/schemas/Payment'

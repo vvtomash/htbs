@@ -1,0 +1,67 @@
+@startuml
+'https://plantuml.com/deployment-diagram
+
+skinparam linetype ortho
+'left to right direction
+
+actor User
+
+node MobileDevice {
+    artifact MobileApplication.apk
+    database MobileApplicationDB
+}
+
+folder Digital {
+  node Nginx as Nginx
+
+  node ProdCluster {
+      component ApiService as ProdApiService
+      component TransferService as ProdTransferService #palegreen
+      component OrderManagementService as ProdOrderManagementService #palegreen
+      component NotificationService as ProdNotificationService
+
+      queue RabbitMQ as ProdRabbitMQ
+
+      database MainDBCluster as ProdMainDB {
+        artifact DigitalBackendSchema
+      }
+    }
+}
+
+cloud AzureCloud #palegreen {
+  component DurableFunctions #palegreen
+}
+
+folder BankCore {
+    folder Prod {
+        component CoreSystem as ProdCoreSystem
+        queue Kafka as ProdKafka
+    }
+
+    component SMSGateway
+}
+
+cloud SMSProvider
+cloud Firebase
+
+
+' General connections
+User -- MobileDevice
+MobileApplication.apk -- MobileApplicationDB
+SMSGateway -- SMSProvider
+
+MobileApplication.apk -- Nginx
+Nginx -- ProdApiService
+ProdApiService -- ProdMainDB
+ProdNotificationService -- ProdRabbitMQ
+ProdNotificationService -- SMSGateway
+ProdNotificationService -- Firebase
+
+ProdApiService -- DurableFunctions
+DurableFunctions -- ProdRabbitMQ
+DurableFunctions -- Nginx
+Nginx -- ProdTransferService
+ProdOrderManagementService -- ProdRabbitMQ
+ProdTransferService -- ProdKafka
+
+@enduml

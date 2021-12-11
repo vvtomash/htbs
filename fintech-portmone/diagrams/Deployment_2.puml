@@ -1,0 +1,17 @@
+@startuml
+'https://plantuml.com/deployment-diagram
+
+skinparam linetype ortho
+'left to right direction
+
+cloud AzureCloud {
+  component OrderClientFunction 
+  component OrderOrchestrator 
+  component LockFund 
+  component CreateBill 
+  component PayBill 
+  component CompletePayment 
+  component EventNotify 
+}
+
+@enduml
